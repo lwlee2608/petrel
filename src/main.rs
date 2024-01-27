@@ -1,3 +1,6 @@
+mod options;
+
+use crate::options::Options;
 use chrono::Local;
 use diameter::avp;
 use diameter::avp::enumerated::EnumeratedAvp;
@@ -38,14 +41,9 @@ async fn main() {
         .filter(None, log::LevelFilter::Info)
         .init();
 
-    // let batch_size = 8000;
-    // let rps = 180000;
-    // let total_iterations = 1800000;
-    let batch_size = 1;
-    let rps = 1;
-    let total_iterations = 3;
-    let batches_per_second = rps as f64 / batch_size as f64;
-    let interval = Duration::from_secs_f64(1.0 / batches_per_second);
+    let options = options::load("./options.lua");
+    let rps = options.call_rate;
+    let (batch_size, interval, total_iterations) = calculate_batch_size(&options);
 
     log::info!(
         "Sending {} requests per second with batch size {}, interval {}",
@@ -71,12 +69,12 @@ async fn main() {
         for _ in 0..batch_size {
             let seq_id = seq_id.fetch_add(1, Ordering::SeqCst);
             let ccr = ccr(seq_id);
-            log::info!("Request: {}", ccr);
+            // log::info!("Request: {}", ccr);
             let mut request = client.request(ccr).await.unwrap();
             let _handle = tokio::spawn(async move {
                 let _ = request.send().await.expect("Failed to create request");
                 let _cca = request.response().await.expect("Failed to get response");
-                log::info!("Response: {}", _cca);
+                // log::info!("Response: {}", _cca);
                 COUNTER.fetch_add(1, Ordering::SeqCst);
             });
         }
@@ -109,4 +107,35 @@ pub fn ccr(seq_id: u32) -> DiameterMessage {
     ccr.add_avp(avp!(416, None, EnumeratedAvp::new(1), true));
     ccr.add_avp(avp!(415, None, Unsigned32Avp::new(1000), true));
     ccr
+}
+
+fn calculate_batch_size(options: &Options) -> (u32, Duration, u32) {
+    let rps = options.call_rate;
+    let batch_size = (rps / 200) as u32;
+    let batch_size = if batch_size == 0 { 1 } else { batch_size };
+    let batches_per_second = rps as f64 / batch_size as f64;
+    let interval = Duration::from_secs_f64(1.0 / batches_per_second);
+    let total_iterations = rps * options.duration_s;
+
+    return (batch_size, interval, total_iterations);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_calculate() {
+        let options = Options {
+            call_rate: 500,
+            call_timeout_ms: 2000,
+            duration_s: 120,
+        };
+
+        let (batch_size, interval, total_iterations) = calculate_batch_size(&options);
+
+        assert_eq!(batch_size, 2);
+        assert_eq!(interval.as_secs_f64(), 0.004);
+        assert_eq!(total_iterations, 60000);
+    }
 }
