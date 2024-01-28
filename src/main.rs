@@ -43,7 +43,7 @@ async fn main() {
 
     let options = options::load("./options.lua");
     let rps = options.call_rate;
-    let (batch_size, interval, total_iterations) = calculate_batch_size(&options);
+    let (batch_size, interval, total_iterations) = calc_batch_interval(&options);
 
     log::info!(
         "Sending {} requests per second with batch size {}, interval {}",
@@ -69,12 +69,16 @@ async fn main() {
         for _ in 0..batch_size {
             let seq_id = seq_id.fetch_add(1, Ordering::SeqCst);
             let ccr = ccr(seq_id);
-            // log::info!("Request: {}", ccr);
+            if options.log_requests {
+                log::info!("Request: {}", ccr);
+            }
             let mut request = client.request(ccr).await.unwrap();
             let _handle = tokio::spawn(async move {
                 let _ = request.send().await.expect("Failed to create request");
                 let _cca = request.response().await.expect("Failed to get response");
-                // log::info!("Response: {}", _cca);
+                if options.log_responses {
+                    log::info!("Response: {}", _cca);
+                }
                 COUNTER.fetch_add(1, Ordering::SeqCst);
             });
         }
@@ -109,7 +113,7 @@ pub fn ccr(seq_id: u32) -> DiameterMessage {
     ccr
 }
 
-fn calculate_batch_size(options: &Options) -> (u32, Duration, u32) {
+fn calc_batch_interval(options: &Options) -> (u32, Duration, u32) {
     let rps = options.call_rate;
     let batch_size = (rps / 200) as u32;
     let batch_size = if batch_size == 0 { 1 } else { batch_size };
@@ -130,9 +134,12 @@ mod tests {
             call_rate: 500,
             call_timeout_ms: 2000,
             duration_s: 120,
+            log_requests: false,
+            log_responses: false,
+            scenarios: vec![],
         };
 
-        let (batch_size, interval, total_iterations) = calculate_batch_size(&options);
+        let (batch_size, interval, total_iterations) = calc_batch_interval(&options);
 
         assert_eq!(batch_size, 2);
         assert_eq!(interval.as_secs_f64(), 0.004);
