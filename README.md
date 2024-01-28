@@ -1,3 +1,3 @@
 # Petrel
 
-An alternative to Seagull
+Diameter load generator, an alternative to Seagull
