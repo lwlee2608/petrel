@@ -12,9 +12,27 @@ pub struct Options {
     pub scenarios: Vec<Scenario>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Scenario {
     pub name: String,
+    pub message: Message,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Message {
+    pub command: String,
+    pub application: String,
+    pub avps: Vec<Avp>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Avp {
+    pub code: u32,
+    pub vendor: Option<u32>,
+    #[serde(rename = "type", default)]
+    pub avp_type: String,
+    pub value: String,
+    // pub mandatory: bool,
 }
 
 impl UserData for Options {}
@@ -46,9 +64,17 @@ mod tests {
                     log_requests = false,
                     log_responses = false,
                     scenarios = {
-                        { name = "scenario1" },
-                        { name = "scenario2" },
-                    }
+                        {
+                            name = "CER",
+                            message = {
+                                command = "Capability-Exchange", application = "Common", flags = 0,
+                                avps = {
+                                    { code = 264, type = "identity",   value = "host.example.com", mandatory = true },
+                                    { code = 296, type = "identity",   value = "realm.example.com",mandatory =  true },
+                                },
+                            },
+                        },
+                    },
                 }"#,
             )
             .eval()?;
@@ -60,9 +86,31 @@ mod tests {
         assert_eq!(options.duration_s, 60);
         assert_eq!(options.log_requests, false);
         assert_eq!(options.log_responses, false);
-        assert_eq!(options.scenarios.len(), 2);
-        assert_eq!(options.scenarios[0].name, "scenario1");
-        assert_eq!(options.scenarios[1].name, "scenario2");
+        assert_eq!(options.scenarios.len(), 1);
+        assert_eq!(
+            options.scenarios[0],
+            Scenario {
+                name: "CER".into(),
+                message: Message {
+                    command: "Capability-Exchange".into(),
+                    application: "Common".into(),
+                    avps: vec![
+                        Avp {
+                            code: 264,
+                            vendor: None,
+                            avp_type: "identity".into(),
+                            value: "host.example.com".into(),
+                        },
+                        Avp {
+                            code: 296,
+                            vendor: None,
+                            avp_type: "identity".into(),
+                            value: "realm.example.com".into(),
+                        },
+                    ],
+                },
+            },
+        );
 
         Ok(())
     }
