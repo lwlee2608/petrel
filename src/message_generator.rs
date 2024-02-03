@@ -23,6 +23,9 @@ struct AvpContainer {
     code: u32,
     vendor_id: Option<u32>,
     flags: u8,
+    avp_type: AvpType,
+    value: String,
+    // TODO add constant value and variable value
     // value: AvpValue,
 }
 
@@ -42,8 +45,10 @@ impl MessageGenerator {
 
             let avp = AvpContainer {
                 code: avp_definition.code,
-                vendor_id: None, // TODO
-                flags: 0,        // TODO
+                vendor_id: None, // TODO avp_definition.vendor_id,
+                flags: 0,        // TODO avp_definition.flags,
+                avp_type: avp_definition.avp_type,
+                value: a.value.clone(), // TODO
             };
 
             avps.push(avp);
@@ -69,52 +74,20 @@ impl MessageGenerator {
         );
 
         for avp in &self.avps {
-            diameter_msg.add_avp(Avp::new(
-                avp.code,
-                avp.vendor_id,
-                avp.flags,
-                // avp.value,
-                Identity::new("some.site.com").into(),
-            ));
-        }
+            let avp_value: AvpValue = match avp.avp_type {
+                AvpType::Identity => Identity::new(&avp.value).into(),
+                AvpType::UTF8String => UTF8String::new(&avp.value).into(),
+                AvpType::OctetString => OctetString::new(avp.value.clone().into()).into(),
+                AvpType::Unsigned32 => Unsigned32::new(avp.value.parse().unwrap()).into(),
+                AvpType::Enumerated => Enumerated::new(avp.value.parse().unwrap()).into(),
+                _ => todo!(),
+            };
 
-        // for avp_config in &scenario.message.avps {
-        //     let avp_definition = dictionary::DEFAULT_DICT
-        //         .get_avp_by_name(&avp_config.name)
-        //         .unwrap();
-        //     println!("avp def : {:?}", avp_definition);
-        //
-        //     let avp_value: AvpValue = match avp_definition.avp_type {
-        //         AvpType::Identity => Identity::new(&avp_config.value).into(),
-        //         AvpType::UTF8String => UTF8String::new(&avp_config.value).into(),
-        //         AvpType::OctetString => OctetString::new(avp_config.value.clone().into()).into(),
-        //         // diameter::avp::AvpType::Identity => Identity::new(&avp_config.value),
-        //         // diameter::avp::AvpType::UTF8String => UTF8String::new(&avp_config.value),
-        //         _ => todo!(),
-        //     };
-        //
-        //     diameter_msg.add_avp(Avp::new(
-        //         avp_definition.code,
-        //         None,
-        //         // Some(avp_definition.vendor_id),
-        //         // avp_definition.flags,
-        //         0,
-        //         avp_value,
-        //     ))
-        // }
+            diameter_msg.add_avp(Avp::new(avp.code, avp.vendor_id, avp.flags, avp_value));
+        }
 
         println!("diameter_msg : {}", diameter_msg);
 
         diameter_msg
-    }
-}
-impl AvpContainer {
-    pub fn new(code: u32, vendor_id: Option<u32>, flags: u8, value: AvpValue) -> Self {
-        AvpContainer {
-            code,
-            vendor_id,
-            flags,
-            // value,
-        }
     }
 }
