@@ -27,12 +27,8 @@ pub struct Message {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Avp {
-    pub code: u32,
-    pub vendor: Option<u32>,
-    #[serde(rename = "type", default)]
-    pub avp_type: String,
+    pub name: String,
     pub value: String,
-    // pub mandatory: bool,
 }
 
 impl UserData for Options {}
@@ -69,8 +65,8 @@ mod tests {
                             message = {
                                 command = "Capability-Exchange", application = "Common", flags = 0,
                                 avps = {
-                                    { code = 264, type = "identity",   value = "host.example.com", mandatory = true },
-                                    { code = 296, type = "identity",   value = "realm.example.com",mandatory =  true },
+                                    { name = "Origin-Host", value = "host.example.com" },
+                                    { name = "Origin-Realm", value = "realm.example.com" },
                                 },
                             },
                         },
@@ -96,15 +92,11 @@ mod tests {
                     application: "Common".into(),
                     avps: vec![
                         Avp {
-                            code: 264,
-                            vendor: None,
-                            avp_type: "identity".into(),
+                            name: "Origin-Host".into(),
                             value: "host.example.com".into(),
                         },
                         Avp {
-                            code: 296,
-                            vendor: None,
-                            avp_type: "identity".into(),
+                            name: "Origin-Realm".into(),
                             value: "realm.example.com".into(),
                         },
                     ],

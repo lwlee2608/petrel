@@ -1,10 +1,12 @@
 local option = {
-    -- call_rate = 50000,
-    call_rate = 1,
     call_timeout_ms = 1000,
-    duration_s = 10,
+    duration_s = 3,
+    call_rate = 1,
+    -- call_rate = 150000,
     log_requests = true,
     log_responses = true,
+    -- log_requests = false,
+    -- log_responses = false,
 
     -- https://gull.sourceforge.net/doc/diameter.html
     scenarios = {
@@ -13,12 +15,10 @@ local option = {
             message = {
                 command = "Capability-Exchange", application = "Common", flags = 0,
                 avps = {
-                    { code = 264, type = "identity",   value = "host.example.com", mandatory = true },
-                    { code = 296, type = "identity",   value = "realm.example.com",mandatory =  true },
-                    { code = 263, type = "utf8string", value = "ses;2345888", mandatory = true },
-                    { code = 415, type = "unsigned32", value = 2001, mandatory = false },
-                    { code = 416, type = "enumerated", value = 1, mandatory = true },
-                    { code = 415, type = "unsigned32", value = 1000, mandatory = true },
+                    { name = "Origin-Host", value = "host.example.com" },
+                    { name = "Origin-Realm", value = "realm.example.com" },
+                    { name = "Session-Id", value = "ses;2345888" },
+                    { name = "CC-Correlation-Id", value = "ses;2345888" },
                 },
             },
         },
@@ -27,11 +27,11 @@ local option = {
             message = {
                 command = "CreditControl", application = "CreditControl", flags = 0,
                 avps = {
-                    { code = 264, type = "identity",   value = "host.example.com", mandatory = true },
-                    { code = 296, type = "identity",   value = "realm.example.com",mandatory =  true },
-                    { code = 263, type = "utf8string", value = "ses;2345888", mandatory = true },
-                    { code = 416, type = "enumerated", value = 1, mandatory = true },
-                    { code = 415, type = "unsigned32", value = 1000, mandatory = true },
+                    { name = "Origin-Host", value = "host.example.com" },
+                    { name = "Origin-Realm", value = "realm.example.com" },
+                    { name = "Session-Id", value = "ses;2345888" },
+                    { name = "CC-Request-Type", value = "1" },
+                    { name = "CC-Request-Number", value = "100" },
                 },
             },
         },

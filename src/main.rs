@@ -1,3 +1,4 @@
+mod message_generator;
 mod options;
 
 use crate::options::Options;
@@ -56,6 +57,11 @@ async fn main() {
 
     let mut interval = time::interval(interval);
 
+    // Generate Request
+    let mut generator =
+        message_generator::MessageGenerator::new(&options.scenarios.get(0).unwrap());
+
+    // Connect to server
     let mut client = DiameterClient::new("localhost:3868");
     let _ = client.connect().await;
 
@@ -63,14 +69,12 @@ async fn main() {
     let start = Instant::now();
 
     // Fire Requests
-    let seq_id = AtomicU32::new(0);
-
     for _ in 0..total_iterations / batch_size {
         interval.tick().await;
 
         for _ in 0..batch_size {
-            let seq_id = seq_id.fetch_add(1, Ordering::SeqCst);
-            let ccr = ccr(seq_id);
+            // let ccr = ccr(client.get_next_seq_num());
+            let ccr = generator.message();
             if options.log_requests {
                 log::info!("Request: {}", ccr);
             }
@@ -99,13 +103,13 @@ async fn main() {
     );
 }
 
-pub fn ccr(seq_id: u32) -> DiameterMessage {
+pub fn ccr(seq_num: u32) -> DiameterMessage {
     let mut ccr = DiameterMessage::new(
         CommandCode::CreditControl,
         ApplicationId::CreditControl,
         flags::REQUEST,
-        seq_id,
-        seq_id,
+        seq_num,
+        seq_num,
     );
     ccr.add_avp(avp!(264, None, M, Identity::new("host.example.com")));
     ccr.add_avp(avp!(296, None, M, Identity::new("realm.example.com")));
