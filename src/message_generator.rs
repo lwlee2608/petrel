@@ -23,10 +23,13 @@ struct AvpContainer {
     code: u32,
     vendor_id: Option<u32>,
     flags: u8,
+    value: AvpValueContainer,
+}
+
+struct AvpValueContainer {
     avp_type: AvpType,
-    value: String,
-    // TODO add constant value and variable value
-    // value: AvpValue,
+    constant: Option<AvpValue>,
+    variable: Option<String>,
 }
 
 impl MessageGenerator {
@@ -47,8 +50,13 @@ impl MessageGenerator {
                 code: avp_definition.code,
                 vendor_id: None, // TODO avp_definition.vendor_id,
                 flags: 0,        // TODO avp_definition.flags,
-                avp_type: avp_definition.avp_type,
-                value: a.value.clone(), // TODO
+                value: AvpValueContainer {
+                    avp_type: avp_definition.avp_type,
+                    constant: None,
+                    variable: a.value.constant.clone(),
+                },
+                // avp_type: avp_definition.avp_type,
+                // value: a.value.clone(), // TODO
             };
 
             avps.push(avp);
@@ -74,12 +82,13 @@ impl MessageGenerator {
         );
 
         for avp in &self.avps {
-            let avp_value: AvpValue = match avp.avp_type {
-                AvpType::Identity => Identity::new(&avp.value).into(),
-                AvpType::UTF8String => UTF8String::new(&avp.value).into(),
-                AvpType::OctetString => OctetString::new(avp.value.clone().into()).into(),
-                AvpType::Unsigned32 => Unsigned32::new(avp.value.parse().unwrap()).into(),
-                AvpType::Enumerated => Enumerated::new(avp.value.parse().unwrap()).into(),
+            let variable = avp.value.variable.clone().unwrap();
+            let avp_value: AvpValue = match avp.value.avp_type {
+                AvpType::Identity => Identity::new(&variable).into(),
+                AvpType::UTF8String => UTF8String::new(&variable).into(),
+                AvpType::OctetString => OctetString::new(variable.clone().into()).into(),
+                AvpType::Unsigned32 => Unsigned32::new(variable.parse().unwrap()).into(),
+                AvpType::Enumerated => Enumerated::new(variable.parse().unwrap()).into(),
                 _ => todo!(),
             };
 

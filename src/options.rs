@@ -28,7 +28,13 @@ pub struct Message {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Avp {
     pub name: String,
-    pub value: String,
+    pub value: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Value {
+    pub constant: Option<String>,
+    pub variable: Option<String>,
 }
 
 impl UserData for Options {}
@@ -65,8 +71,8 @@ mod tests {
                             message = {
                                 command = "Capability-Exchange", application = "Common", flags = 0,
                                 avps = {
-                                    { name = "Origin-Host", value = "host.example.com" },
-                                    { name = "Origin-Realm", value = "realm.example.com" },
+                                    { name = "Origin-Host", value = { constant = "host.example.com" } },
+                                    { name = "Origin-Realm", value = { constant = "realm.example.com" } },
                                 },
                             },
                         },
@@ -93,11 +99,17 @@ mod tests {
                     avps: vec![
                         Avp {
                             name: "Origin-Host".into(),
-                            value: "host.example.com".into(),
+                            value: Value {
+                                constant: Some("host.example.com".into()),
+                                variable: None,
+                            },
                         },
                         Avp {
                             name: "Origin-Realm".into(),
-                            value: "realm.example.com".into(),
+                            value: Value {
+                                constant: Some("realm.example.com".into()),
+                                variable: None,
+                            },
                         },
                     ],
                 },

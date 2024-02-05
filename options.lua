@@ -15,10 +15,9 @@ local option = {
             message = {
                 command = "Capability-Exchange", application = "Common", flags = 0,
                 avps = {
-                    { name = "Origin-Host", value = "host.example.com" },
-                    { name = "Origin-Realm", value = "realm.example.com" },
-                    { name = "Session-Id", value = "ses;2345888" },
-                    { name = "CC-Correlation-Id", value = "ses;2345888" },
+                    { name = "Origin-Host", value = { constant = "host.example.com" } },
+                    { name = "Origin-Realm", value = { contant = "realm.example.com" } },
+                    { name = "CC-Correlation-Id", value = { constant = "ses;2345888" } },
                 },
             },
         },
@@ -27,11 +26,11 @@ local option = {
             message = {
                 command = "CreditControl", application = "CreditControl", flags = 0,
                 avps = {
-                    { name = "Origin-Host", value = "host.example.com" },
-                    { name = "Origin-Realm", value = "realm.example.com" },
-                    { name = "Session-Id", value = "ses;2345888" },
-                    { name = "CC-Request-Type", value = "1" },
-                    { name = "CC-Request-Number", value = "100" },
+                    { name = "Origin-Host", value = { constant = "host.example.com" } },
+                    { name = "Origin-Realm", value = { constant = "realm.example.com" } },
+                    -- { name = "Session-Id", value = { variable = "ses;2345888" } },
+                    { name = "CC-Request-Type", value = { constant = "1" } },
+                    { name = "CC-Request-Number", value = { constant = "100" } },
                 },
             },
         },
