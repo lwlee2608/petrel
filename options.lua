@@ -28,7 +28,7 @@ local option = {
                 avps = {
                     { name = "Origin-Host", value = { constant = "host.example.com" } },
                     { name = "Origin-Realm", value = { constant = "realm.example.com" } },
-                    -- { name = "Session-Id", value = { variable = "ses;2345888" } },
+                    { name = "Session-Id", value = { variable = "ses;2345888" } },
                     { name = "CC-Request-Type", value = { constant = "1" } },
                     { name = "CC-Request-Number", value = { constant = "100" } },
                 },
