@@ -23,13 +23,13 @@ struct AvpContainer {
     code: u32,
     vendor_id: Option<u32>,
     flags: u8,
+    avp_type: AvpType,
     value: AvpValueContainer,
 }
 
-struct AvpValueContainer {
-    avp_type: AvpType,
-    constant: Option<AvpValue>,
-    variable: Option<String>,
+enum AvpValueContainer {
+    Constant(AvpValue),
+    Variable(String),
 }
 
 impl MessageGenerator {
@@ -46,17 +46,20 @@ impl MessageGenerator {
         for a in &scenario.message.avps {
             let avp_definition = dictionary::DEFAULT_DICT.get_avp_by_name(&a.name).unwrap();
 
+            let value = if a.value.variable.is_some() {
+                AvpValueContainer::Variable(a.value.variable.clone().unwrap())
+            } else if a.value.constant.is_some() {
+                AvpValueContainer::Variable(a.value.constant.clone().unwrap())
+            } else {
+                panic!("Both constant and variable for avp {} are None", a.name);
+            };
+
             let avp = AvpContainer {
                 code: avp_definition.code,
                 vendor_id: None, // TODO avp_definition.vendor_id,
                 flags: 0,        // TODO avp_definition.flags,
-                value: AvpValueContainer {
-                    avp_type: avp_definition.avp_type,
-                    constant: None,
-                    variable: a.value.constant.clone(),
-                },
-                // avp_type: avp_definition.avp_type,
-                // value: a.value.clone(), // TODO
+                avp_type: avp_definition.avp_type,
+                value,
             };
 
             avps.push(avp);
@@ -82,13 +85,18 @@ impl MessageGenerator {
         );
 
         for avp in &self.avps {
-            let variable = avp.value.variable.clone().unwrap();
-            let avp_value: AvpValue = match avp.value.avp_type {
-                AvpType::Identity => Identity::new(&variable).into(),
-                AvpType::UTF8String => UTF8String::new(&variable).into(),
-                AvpType::OctetString => OctetString::new(variable.clone().into()).into(),
-                AvpType::Unsigned32 => Unsigned32::new(variable.parse().unwrap()).into(),
-                AvpType::Enumerated => Enumerated::new(variable.parse().unwrap()).into(),
+            // let variable = avp.value.variable.clone().unwrap();
+            let value = match &avp.value {
+                AvpValueContainer::Variable(v) => v.clone(),
+                AvpValueContainer::Constant(v) => v.to_string(),
+            };
+
+            let avp_value: AvpValue = match avp.avp_type {
+                AvpType::Identity => Identity::new(&value).into(),
+                AvpType::UTF8String => UTF8String::new(&value).into(),
+                AvpType::OctetString => OctetString::new(value.clone().into()).into(),
+                AvpType::Unsigned32 => Unsigned32::new(value.parse().unwrap()).into(),
+                AvpType::Enumerated => Enumerated::new(value.parse().unwrap()).into(),
                 _ => todo!(),
             };
 
