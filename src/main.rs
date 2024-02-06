@@ -1,4 +1,4 @@
-mod message_generator;
+mod generator;
 mod options;
 
 use crate::options::Options;
@@ -51,7 +51,7 @@ async fn main() {
     // Generate Request
     // TODO remove hardcode
     let mut generator =
-        message_generator::MessageGenerator::new(&options.scenarios.get(1).unwrap());
+        generator::MessageGenerator::new(&options.scenarios.get(1).unwrap()).unwrap();
 
     // Connect to server
     let mut client = DiameterClient::new("localhost:3868");

@@ -14,20 +14,20 @@ use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
 use regex::Regex;
 use std::cell::RefCell;
+use std::error::Error;
+use std::result::Result;
 
 pub struct MessageGenerator {
     command_code: CommandCode,
     application_id: ApplicationId,
     flags: u8,
     seq_num: u32,
-    avps: Vec<AvpContainer>,
+    avps: Vec<AvpGenerator>,
 }
 
 impl MessageGenerator {
-    pub fn new(scenario: &Scenario) -> Self {
-        // TODO
-        // let command_code = CommandCode::from(scenario.message.command.as_str());
-        // let application_id = ApplicationId::from(scenario.message.application.as_str());
+    pub fn new(scenario: &Scenario) -> Result<Self, Box<dyn Error>> {
+        // TODO remove hardcode, get command_code and app_id from dictionary
         let command_code = CommandCode::CreditControl;
         let application_id = ApplicationId::CreditControl;
         let flags = flags::REQUEST;
@@ -35,23 +35,31 @@ impl MessageGenerator {
         let mut avps = vec![];
 
         for a in &scenario.message.avps {
-            let avp_definition = dictionary::DEFAULT_DICT.get_avp_by_name(&a.name).unwrap();
+            let avp_definition = dictionary::DEFAULT_DICT
+                .get_avp_by_name(&a.name)
+                .ok_or("AVP not found in dictionary")?;
 
             let value = match &a.value.variable {
-                Some(v) => AvpValueContainer::Variable(AvpVariableValue::new(v)),
+                Some(v) => AvpValueGenerator::Variable(VariableValueGenerator::new(v)),
                 None => match &a.value.constant {
                     Some(c) => {
-                        let v = string_to_avp_value(c, avp_definition.avp_type);
-                        AvpValueContainer::Constant(v)
+                        let v = string_to_avp_value(c, avp_definition.avp_type)?;
+                        AvpValueGenerator::Constant(v)
                     }
-                    None => panic!("Both constant and variable for avp {} are None", a.name),
+                    None => {
+                        return Err(format!(
+                            "Both constant and variable for avp {} are None",
+                            a.name
+                        )
+                        .into());
+                    }
                 },
             };
 
-            let avp = AvpContainer {
+            let avp = AvpGenerator {
                 code: avp_definition.code,
-                vendor_id: None, // TODO avp_definition.vendor_id,
-                flags: 0,        // TODO avp_definition.flags,
+                vendor_id: None, // TODO remove hardcode, avp_definition.vendor_id,
+                flags: 0,        // TODO remove hardcode, avp_definition.flags,
                 avp_type: avp_definition.avp_type,
                 value,
             };
@@ -59,13 +67,13 @@ impl MessageGenerator {
             avps.push(avp);
         }
 
-        MessageGenerator {
+        Ok(MessageGenerator {
             command_code,
             application_id,
             flags,
             seq_num: 0,
             avps,
-        }
+        })
     }
 
     pub fn message(&mut self) -> DiameterMessage {
@@ -80,20 +88,18 @@ impl MessageGenerator {
 
         for avp in &self.avps {
             let value: AvpValue = match &avp.value {
-                AvpValueContainer::Constant(v) => v.clone(),
-                AvpValueContainer::Variable(v) => v.get_value(avp.avp_type),
+                AvpValueGenerator::Constant(v) => v.clone(),
+                AvpValueGenerator::Variable(v) => v.get_value(avp.avp_type),
             };
             diameter_msg.add_avp(Avp::new(avp.code, avp.vendor_id, avp.flags, value));
         }
-
-        println!("diameter_msg : {}", diameter_msg);
 
         diameter_msg
     }
 }
 
-pub fn string_to_avp_value(str: &str, avp_type: AvpType) -> AvpValue {
-    match avp_type {
+pub fn string_to_avp_value(str: &str, avp_type: AvpType) -> Result<AvpValue, Box<dyn Error>> {
+    let value = match avp_type {
         AvpType::Address => Address::new(str.as_bytes().to_vec()).into(),
         AvpType::AddressIPv4 => Address::new(str.as_bytes().to_vec()).into(),
         AvpType::AddressIPv6 => Address::new(str.as_bytes().to_vec()).into(),
@@ -110,29 +116,30 @@ pub fn string_to_avp_value(str: &str, avp_type: AvpType) -> AvpValue {
         AvpType::Unsigned64 => Unsigned64::new(str.parse().unwrap()).into(),
         AvpType::UTF8String => UTF8String::new(&str).into(),
         AvpType::Time => Unsigned32::new(str.parse().unwrap()).into(),
-        AvpType::Unknown => todo!("Throw Error"),
-    }
+        AvpType::Unknown => return Err("Unknown AVP type".into()),
+    };
+    Ok(value)
 }
 
-struct AvpContainer {
+struct AvpGenerator {
     code: u32,
     vendor_id: Option<u32>,
     flags: u8,
     avp_type: AvpType,
-    value: AvpValueContainer,
+    value: AvpValueGenerator,
 }
 
-enum AvpValueContainer {
+enum AvpValueGenerator {
     Constant(AvpValue),
-    Variable(AvpVariableValue),
+    Variable(VariableValueGenerator),
 }
 
-struct AvpVariableValue {
+struct VariableValueGenerator {
     source: String,
     functions: Vec<Box<dyn Function>>,
 }
 
-impl AvpVariableValue {
+impl VariableValueGenerator {
     pub fn new(source: &str) -> Self {
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
         let mut functions: Vec<Box<dyn Function>> = Vec::new();
@@ -145,7 +152,7 @@ impl AvpVariableValue {
             }
         }
 
-        AvpVariableValue {
+        VariableValueGenerator {
             source: source.into(),
             functions,
         }
@@ -161,7 +168,7 @@ impl AvpVariableValue {
 
     pub fn get_value(&self, avp_type: AvpType) -> AvpValue {
         let value = self.execute();
-        string_to_avp_value(&value, avp_type)
+        string_to_avp_value(&value, avp_type).unwrap() // TODO remove unwrap
     }
 }
 
@@ -201,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_variable() {
-        let variable = AvpVariableValue::new("ses;${COUNTER}");
+        let variable = VariableValueGenerator::new("ses;${COUNTER}");
 
         assert_eq!("ses;1", variable.execute());
         assert_eq!("ses;2", variable.execute());
