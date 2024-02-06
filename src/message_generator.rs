@@ -11,6 +11,7 @@ use diameter::dictionary;
 use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
 use regex::Regex;
+use std::cell::RefCell;
 
 pub struct MessageGenerator {
     command_code: CommandCode,
@@ -133,8 +134,8 @@ impl AvpVariableValue {
         }
     }
 
-    pub fn execute(&mut self) -> String {
-        let function = &mut self.functions[0];
+    pub fn execute(&self) -> String {
+        let function = &self.functions[0];
         let counter = function.execute();
         let name = function.name();
         let result = self.source.replace(&format!("${{{}}}", name), &counter);
@@ -142,8 +143,7 @@ impl AvpVariableValue {
     }
 
     pub fn get_value(&self, avp_type: AvpType) -> AvpValue {
-        // let value = self.execute();
-        let value = &self.source;
+        let value = self.execute();
         let avp_value: AvpValue = match avp_type {
             AvpType::Identity => Identity::new(&value).into(),
             AvpType::UTF8String => UTF8String::new(&value).into(),
@@ -156,33 +156,29 @@ impl AvpVariableValue {
     }
 }
 
-// struct Function {
-//     name: String,
-//     args: Vec<String>,
-// }
 pub trait Function {
-    fn execute(&mut self) -> String;
+    fn execute(&self) -> String;
     fn name(&self) -> String;
 }
 
 struct CounterFunction {
     name: String,
-    counter: i32,
+    counter: RefCell<i32>, // Hopefully this doesn't explode
 }
 
 impl CounterFunction {
     pub fn new() -> Self {
         CounterFunction {
             name: "COUNTER".to_string(),
-            counter: 0,
+            counter: RefCell::new(0),
         }
     }
 }
 
 impl Function for CounterFunction {
-    fn execute(&mut self) -> String {
-        self.counter += 1;
-        self.counter.to_string()
+    fn execute(&self) -> String {
+        *self.counter.borrow_mut() += 1;
+        self.counter.borrow().to_string()
     }
 
     fn name(&self) -> String {
@@ -196,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_variable() {
-        let mut variable = AvpVariableValue::new("ses;${COUNTER}");
+        let variable = AvpVariableValue::new("ses;${COUNTER}");
 
         assert_eq!("ses;1", variable.execute());
         assert_eq!("ses;2", variable.execute());
