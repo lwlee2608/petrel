@@ -95,22 +95,6 @@ async fn main() {
     );
 }
 
-// pub fn ccr(seq_num: u32) -> DiameterMessage {
-//     let mut ccr = DiameterMessage::new(
-//         CommandCode::CreditControl,
-//         ApplicationId::CreditControl,
-//         flags::REQUEST,
-//         seq_num,
-//         seq_num,
-//     );
-//     ccr.add_avp(avp!(264, None, M, Identity::new("host.example.com")));
-//     ccr.add_avp(avp!(296, None, M, Identity::new("realm.example.com")));
-//     ccr.add_avp(avp!(263, None, M, UTF8String::new("ses;12345888")));
-//     ccr.add_avp(avp!(416, None, M, Enumerated::new(1)));
-//     ccr.add_avp(avp!(415, None, M, Unsigned32::new(1000)));
-//     ccr
-// }
-
 fn calc_batch_interval(options: &Options) -> (u32, Duration, u32) {
     let rps = options.call_rate;
     let batch_size = (rps / 200) as u32;

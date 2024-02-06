@@ -29,7 +29,30 @@ struct AvpContainer {
 
 enum AvpValueContainer {
     Constant(AvpValue),
-    Variable(String),
+    Variable(AvpVariableValue),
+}
+
+struct AvpVariableValue {
+    source: String,
+}
+
+impl AvpVariableValue {
+    pub fn new(source: &str) -> Self {
+        AvpVariableValue {
+            source: source.to_string(),
+        }
+    }
+    pub fn get_value(&self, avp_type: AvpType) -> AvpValue {
+        let avp_value: AvpValue = match avp_type {
+            AvpType::Identity => Identity::new(&self.source).into(),
+            AvpType::UTF8String => UTF8String::new(&self.source).into(),
+            AvpType::OctetString => OctetString::new(self.source.clone().into()).into(),
+            AvpType::Unsigned32 => Unsigned32::new(self.source.parse().unwrap()).into(),
+            AvpType::Enumerated => Enumerated::new(self.source.parse().unwrap()).into(),
+            _ => todo!(),
+        };
+        avp_value
+    }
 }
 
 impl MessageGenerator {
@@ -46,21 +69,22 @@ impl MessageGenerator {
         for a in &scenario.message.avps {
             let avp_definition = dictionary::DEFAULT_DICT.get_avp_by_name(&a.name).unwrap();
 
-            let value = if a.value.variable.is_some() {
-                AvpValueContainer::Variable(a.value.variable.clone().unwrap())
-            } else if a.value.constant.is_some() {
-                let constant = a.value.constant.clone().unwrap();
-                let v: AvpValue = match avp_definition.avp_type {
-                    AvpType::Identity => Identity::new(&constant).into(),
-                    AvpType::UTF8String => UTF8String::new(&constant).into(),
-                    AvpType::OctetString => OctetString::new(constant.clone().into()).into(),
-                    AvpType::Unsigned32 => Unsigned32::new(constant.parse().unwrap()).into(),
-                    AvpType::Enumerated => Enumerated::new(constant.parse().unwrap()).into(),
-                    _ => todo!(),
-                };
-                AvpValueContainer::Constant(v)
-            } else {
-                panic!("Both constant and variable for avp {} are None", a.name);
+            let value = match &a.value.variable {
+                Some(v) => AvpValueContainer::Variable(AvpVariableValue::new(v)),
+                None => match &a.value.constant {
+                    Some(c) => {
+                        let v: AvpValue = match avp_definition.avp_type {
+                            AvpType::Identity => Identity::new(&c).into(),
+                            AvpType::UTF8String => UTF8String::new(&c).into(),
+                            AvpType::OctetString => OctetString::new(c.clone().into()).into(),
+                            AvpType::Unsigned32 => Unsigned32::new(c.parse().unwrap()).into(),
+                            AvpType::Enumerated => Enumerated::new(c.parse().unwrap()).into(),
+                            _ => todo!(),
+                        };
+                        AvpValueContainer::Constant(v)
+                    }
+                    None => panic!("Both constant and variable for avp {} are None", a.name),
+                },
             };
 
             let avp = AvpContainer {
@@ -96,19 +120,8 @@ impl MessageGenerator {
         for avp in &self.avps {
             let value: AvpValue = match &avp.value {
                 AvpValueContainer::Constant(v) => v.clone(),
-                AvpValueContainer::Variable(v) => {
-                    let avp_value: AvpValue = match avp.avp_type {
-                        AvpType::Identity => Identity::new(&v).into(),
-                        AvpType::UTF8String => UTF8String::new(&v).into(),
-                        AvpType::OctetString => OctetString::new(v.clone().into()).into(),
-                        AvpType::Unsigned32 => Unsigned32::new(v.parse().unwrap()).into(),
-                        AvpType::Enumerated => Enumerated::new(v.parse().unwrap()).into(),
-                        _ => todo!(),
-                    };
-                    avp_value
-                }
+                AvpValueContainer::Variable(v) => v.get_value(avp.avp_type),
             };
-
             diameter_msg.add_avp(Avp::new(avp.code, avp.vendor_id, avp.flags, value));
         }
 
