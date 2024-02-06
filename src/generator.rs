@@ -40,11 +40,11 @@ impl MessageGenerator {
                 .ok_or("AVP not found in dictionary")?;
 
             let value = match &a.value.variable {
-                Some(v) => AvpValueGenerator::Variable(VariableValueGenerator::new(v)),
+                Some(v) => ValueGenerator::Variable(VariableGenerator::new(v)),
                 None => match &a.value.constant {
                     Some(c) => {
                         let v = string_to_avp_value(c, avp_definition.avp_type)?;
-                        AvpValueGenerator::Constant(v)
+                        ValueGenerator::Constant(v)
                     }
                     None => {
                         return Err(format!(
@@ -76,7 +76,7 @@ impl MessageGenerator {
         })
     }
 
-    pub fn message(&mut self) -> DiameterMessage {
+    pub fn message(&mut self) -> Result<DiameterMessage, Box<dyn Error>> {
         self.seq_num += 1;
         let mut diameter_msg = DiameterMessage::new(
             self.command_code,
@@ -88,13 +88,13 @@ impl MessageGenerator {
 
         for avp in &self.avps {
             let value: AvpValue = match &avp.value {
-                AvpValueGenerator::Constant(v) => v.clone(),
-                AvpValueGenerator::Variable(v) => v.get_value(avp.avp_type),
+                ValueGenerator::Constant(v) => v.clone(),
+                ValueGenerator::Variable(v) => v.get_value(avp.avp_type)?,
             };
             diameter_msg.add_avp(Avp::new(avp.code, avp.vendor_id, avp.flags, value));
         }
 
-        diameter_msg
+        Ok(diameter_msg)
     }
 }
 
@@ -126,20 +126,20 @@ struct AvpGenerator {
     vendor_id: Option<u32>,
     flags: u8,
     avp_type: AvpType,
-    value: AvpValueGenerator,
+    value: ValueGenerator,
 }
 
-enum AvpValueGenerator {
+enum ValueGenerator {
     Constant(AvpValue),
-    Variable(VariableValueGenerator),
+    Variable(VariableGenerator),
 }
 
-struct VariableValueGenerator {
+struct VariableGenerator {
     source: String,
     functions: Vec<Box<dyn Function>>,
 }
 
-impl VariableValueGenerator {
+impl VariableGenerator {
     pub fn new(source: &str) -> Self {
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
         let mut functions: Vec<Box<dyn Function>> = Vec::new();
@@ -152,13 +152,13 @@ impl VariableValueGenerator {
             }
         }
 
-        VariableValueGenerator {
+        VariableGenerator {
             source: source.into(),
             functions,
         }
     }
 
-    pub fn execute(&self) -> String {
+    fn compute(&self) -> String {
         let function = &self.functions[0];
         let counter = function.execute();
         let name = function.name();
@@ -166,9 +166,9 @@ impl VariableValueGenerator {
         result
     }
 
-    pub fn get_value(&self, avp_type: AvpType) -> AvpValue {
-        let value = self.execute();
-        string_to_avp_value(&value, avp_type).unwrap() // TODO remove unwrap
+    pub fn get_value(&self, avp_type: AvpType) -> Result<AvpValue, Box<dyn Error>> {
+        let value = self.compute();
+        Ok(string_to_avp_value(&value, avp_type)?)
     }
 }
 
@@ -208,10 +208,10 @@ mod tests {
 
     #[test]
     fn test_variable() {
-        let variable = VariableValueGenerator::new("ses;${COUNTER}");
+        let variable = VariableGenerator::new("ses;${COUNTER}");
 
-        assert_eq!("ses;1", variable.execute());
-        assert_eq!("ses;2", variable.execute());
-        assert_eq!("ses;3", variable.execute());
+        assert_eq!("ses;1", variable.compute());
+        assert_eq!("ses;2", variable.compute());
+        assert_eq!("ses;3", variable.compute());
     }
 }
