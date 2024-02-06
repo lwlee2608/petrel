@@ -10,6 +10,7 @@ use diameter::avp::Unsigned32;
 use diameter::dictionary;
 use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
+use regex::Regex;
 
 pub struct MessageGenerator {
     command_code: CommandCode,
@@ -25,34 +26,6 @@ struct AvpContainer {
     flags: u8,
     avp_type: AvpType,
     value: AvpValueContainer,
-}
-
-enum AvpValueContainer {
-    Constant(AvpValue),
-    Variable(AvpVariableValue),
-}
-
-struct AvpVariableValue {
-    source: String,
-}
-
-impl AvpVariableValue {
-    pub fn new(source: &str) -> Self {
-        AvpVariableValue {
-            source: source.to_string(),
-        }
-    }
-    pub fn get_value(&self, avp_type: AvpType) -> AvpValue {
-        let avp_value: AvpValue = match avp_type {
-            AvpType::Identity => Identity::new(&self.source).into(),
-            AvpType::UTF8String => UTF8String::new(&self.source).into(),
-            AvpType::OctetString => OctetString::new(self.source.clone().into()).into(),
-            AvpType::Unsigned32 => Unsigned32::new(self.source.parse().unwrap()).into(),
-            AvpType::Enumerated => Enumerated::new(self.source.parse().unwrap()).into(),
-            _ => todo!(),
-        };
-        avp_value
-    }
 }
 
 impl MessageGenerator {
@@ -128,5 +101,105 @@ impl MessageGenerator {
         println!("diameter_msg : {}", diameter_msg);
 
         diameter_msg
+    }
+}
+
+enum AvpValueContainer {
+    Constant(AvpValue),
+    Variable(AvpVariableValue),
+}
+
+pub struct AvpVariableValue {
+    pub source: String,
+    pub functions: Vec<Box<dyn Function>>,
+}
+
+impl AvpVariableValue {
+    pub fn new(source: &str) -> Self {
+        let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
+        let mut functions: Vec<Box<dyn Function>> = Vec::new();
+
+        for caps in variable_pattern.captures_iter(source) {
+            let cap = caps[1].to_string();
+            if cap == "COUNTER" {
+                functions.push(Box::new(CounterFunction::new()));
+                continue;
+            }
+        }
+
+        AvpVariableValue {
+            source: source.into(),
+            functions,
+        }
+    }
+
+    pub fn execute(&mut self) -> String {
+        let function = &mut self.functions[0];
+        let counter = function.execute();
+        let name = function.name();
+        let result = self.source.replace(&format!("${{{}}}", name), &counter);
+        result
+    }
+
+    pub fn get_value(&self, avp_type: AvpType) -> AvpValue {
+        // let value = self.execute();
+        let value = &self.source;
+        let avp_value: AvpValue = match avp_type {
+            AvpType::Identity => Identity::new(&value).into(),
+            AvpType::UTF8String => UTF8String::new(&value).into(),
+            AvpType::OctetString => OctetString::new(value.clone().into()).into(),
+            AvpType::Unsigned32 => Unsigned32::new(value.parse().unwrap()).into(),
+            AvpType::Enumerated => Enumerated::new(value.parse().unwrap()).into(),
+            _ => todo!(),
+        };
+        avp_value
+    }
+}
+
+// struct Function {
+//     name: String,
+//     args: Vec<String>,
+// }
+pub trait Function {
+    fn execute(&mut self) -> String;
+    fn name(&self) -> String;
+}
+
+struct CounterFunction {
+    name: String,
+    counter: i32,
+}
+
+impl CounterFunction {
+    pub fn new() -> Self {
+        CounterFunction {
+            name: "COUNTER".to_string(),
+            counter: 0,
+        }
+    }
+}
+
+impl Function for CounterFunction {
+    fn execute(&mut self) -> String {
+        self.counter += 1;
+        self.counter.to_string()
+    }
+
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_variable() {
+        let mut variable = AvpVariableValue::new("ses;${COUNTER}");
+
+        assert_eq!("ses;1", variable.execute());
+        assert_eq!("ses;2", variable.execute());
+        assert_eq!("ses;3", variable.execute());
     }
 }
