@@ -66,7 +66,7 @@ async fn main() {
 
         for _ in 0..batch_size {
             // let ccr = ccr(client.get_next_seq_num());
-            let ccr = generator.message();
+            let ccr = generator.message().unwrap();
             if options.log_requests {
                 log::info!("Request: {}", ccr);
             }
