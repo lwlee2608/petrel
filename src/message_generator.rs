@@ -1,4 +1,5 @@
 use crate::options::Scenario;
+use diameter::avp::Address;
 use diameter::avp::Avp;
 use diameter::avp::AvpType;
 use diameter::avp::AvpValue;
@@ -7,6 +8,7 @@ use diameter::avp::Identity;
 use diameter::avp::OctetString;
 use diameter::avp::UTF8String;
 use diameter::avp::Unsigned32;
+use diameter::avp::Unsigned64;
 use diameter::dictionary;
 use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
@@ -19,14 +21,6 @@ pub struct MessageGenerator {
     flags: u8,
     seq_num: u32,
     avps: Vec<AvpContainer>,
-}
-
-struct AvpContainer {
-    code: u32,
-    vendor_id: Option<u32>,
-    flags: u8,
-    avp_type: AvpType,
-    value: AvpValueContainer,
 }
 
 impl MessageGenerator {
@@ -47,14 +41,7 @@ impl MessageGenerator {
                 Some(v) => AvpValueContainer::Variable(AvpVariableValue::new(v)),
                 None => match &a.value.constant {
                     Some(c) => {
-                        let v: AvpValue = match avp_definition.avp_type {
-                            AvpType::Identity => Identity::new(&c).into(),
-                            AvpType::UTF8String => UTF8String::new(&c).into(),
-                            AvpType::OctetString => OctetString::new(c.clone().into()).into(),
-                            AvpType::Unsigned32 => Unsigned32::new(c.parse().unwrap()).into(),
-                            AvpType::Enumerated => Enumerated::new(c.parse().unwrap()).into(),
-                            _ => todo!(),
-                        };
+                        let v = string_to_avp_value(c, avp_definition.avp_type);
                         AvpValueContainer::Constant(v)
                     }
                     None => panic!("Both constant and variable for avp {} are None", a.name),
@@ -105,14 +92,44 @@ impl MessageGenerator {
     }
 }
 
+pub fn string_to_avp_value(str: &str, avp_type: AvpType) -> AvpValue {
+    match avp_type {
+        AvpType::Address => Address::new(str.as_bytes().to_vec()).into(),
+        AvpType::AddressIPv4 => Address::new(str.as_bytes().to_vec()).into(),
+        AvpType::AddressIPv6 => Address::new(str.as_bytes().to_vec()).into(),
+        AvpType::Identity => Identity::new(&str).into(),
+        AvpType::DiameterURI => UTF8String::new(&str).into(),
+        AvpType::Enumerated => Enumerated::new(str.parse().unwrap()).into(),
+        AvpType::Float32 => Unsigned32::new(str.parse().unwrap()).into(),
+        AvpType::Float64 => Unsigned64::new(str.parse().unwrap()).into(),
+        AvpType::Grouped => todo!(),
+        AvpType::Integer32 => Unsigned32::new(str.parse().unwrap()).into(),
+        AvpType::Integer64 => Unsigned64::new(str.parse().unwrap()).into(),
+        AvpType::OctetString => OctetString::new(str.as_bytes().to_vec()).into(),
+        AvpType::Unsigned32 => Unsigned32::new(str.parse().unwrap()).into(),
+        AvpType::Unsigned64 => Unsigned64::new(str.parse().unwrap()).into(),
+        AvpType::UTF8String => UTF8String::new(&str).into(),
+        AvpType::Time => Unsigned32::new(str.parse().unwrap()).into(),
+        AvpType::Unknown => todo!("Throw Error"),
+    }
+}
+
+struct AvpContainer {
+    code: u32,
+    vendor_id: Option<u32>,
+    flags: u8,
+    avp_type: AvpType,
+    value: AvpValueContainer,
+}
+
 enum AvpValueContainer {
     Constant(AvpValue),
     Variable(AvpVariableValue),
 }
 
-pub struct AvpVariableValue {
-    pub source: String,
-    pub functions: Vec<Box<dyn Function>>,
+struct AvpVariableValue {
+    source: String,
+    functions: Vec<Box<dyn Function>>,
 }
 
 impl AvpVariableValue {
@@ -144,15 +161,7 @@ impl AvpVariableValue {
 
     pub fn get_value(&self, avp_type: AvpType) -> AvpValue {
         let value = self.execute();
-        let avp_value: AvpValue = match avp_type {
-            AvpType::Identity => Identity::new(&value).into(),
-            AvpType::UTF8String => UTF8String::new(&value).into(),
-            AvpType::OctetString => OctetString::new(value.clone().into()).into(),
-            AvpType::Unsigned32 => Unsigned32::new(value.parse().unwrap()).into(),
-            AvpType::Enumerated => Enumerated::new(value.parse().unwrap()).into(),
-            _ => todo!(),
-        };
-        avp_value
+        string_to_avp_value(&value, avp_type)
     }
 }
 
