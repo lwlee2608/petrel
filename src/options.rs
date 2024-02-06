@@ -27,12 +27,14 @@ pub struct Message {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Avp {
-    pub code: u32,
-    pub vendor: Option<u32>,
-    #[serde(rename = "type", default)]
-    pub avp_type: String,
-    pub value: String,
-    // pub mandatory: bool,
+    pub name: String,
+    pub value: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Value {
+    pub constant: Option<String>,
+    pub variable: Option<String>,
 }
 
 impl UserData for Options {}
@@ -69,8 +71,8 @@ mod tests {
                             message = {
                                 command = "Capability-Exchange", application = "Common", flags = 0,
                                 avps = {
-                                    { code = 264, type = "identity",   value = "host.example.com", mandatory = true },
-                                    { code = 296, type = "identity",   value = "realm.example.com",mandatory =  true },
+                                    { name = "Origin-Host", value = { constant = "host.example.com" } },
+                                    { name = "Origin-Realm", value = { constant = "realm.example.com" } },
                                 },
                             },
                         },
@@ -96,16 +98,18 @@ mod tests {
                     application: "Common".into(),
                     avps: vec![
                         Avp {
-                            code: 264,
-                            vendor: None,
-                            avp_type: "identity".into(),
-                            value: "host.example.com".into(),
+                            name: "Origin-Host".into(),
+                            value: Value {
+                                constant: Some("host.example.com".into()),
+                                variable: None,
+                            },
                         },
                         Avp {
-                            code: 296,
-                            vendor: None,
-                            avp_type: "identity".into(),
-                            value: "realm.example.com".into(),
+                            name: "Origin-Realm".into(),
+                            value: Value {
+                                constant: Some("realm.example.com".into()),
+                                variable: None,
+                            },
                         },
                     ],
                 },

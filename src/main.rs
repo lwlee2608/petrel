@@ -1,17 +1,9 @@
+mod generator;
 mod options;
 
 use crate::options::Options;
 use chrono::Local;
-use diameter::avp;
-use diameter::avp::flags::M;
-use diameter::avp::Avp;
-use diameter::avp::Enumerated;
-use diameter::avp::Identity;
-use diameter::avp::UTF8String;
-use diameter::avp::Unsigned32;
-use diameter::flags;
 use diameter::DiameterClient;
-use diameter::{ApplicationId, CommandCode, DiameterMessage};
 use std::io::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
@@ -56,6 +48,12 @@ async fn main() {
 
     let mut interval = time::interval(interval);
 
+    // Generate Request
+    // TODO remove hardcode
+    let mut generator =
+        generator::MessageGenerator::new(&options.scenarios.get(1).unwrap()).unwrap();
+
+    // Connect to server
     let mut client = DiameterClient::new("localhost:3868");
     let _ = client.connect().await;
 
@@ -63,14 +61,12 @@ async fn main() {
     let start = Instant::now();
 
     // Fire Requests
-    let seq_id = AtomicU32::new(0);
-
     for _ in 0..total_iterations / batch_size {
         interval.tick().await;
 
         for _ in 0..batch_size {
-            let seq_id = seq_id.fetch_add(1, Ordering::SeqCst);
-            let ccr = ccr(seq_id);
+            // let ccr = ccr(client.get_next_seq_num());
+            let ccr = generator.message();
             if options.log_requests {
                 log::info!("Request: {}", ccr);
             }
@@ -97,22 +93,6 @@ async fn main() {
         elapsed.subsec_micros(),
         total_iterations as f64 / (elapsed.as_micros() as f64 / 1_000_000.0)
     );
-}
-
-pub fn ccr(seq_id: u32) -> DiameterMessage {
-    let mut ccr = DiameterMessage::new(
-        CommandCode::CreditControl,
-        ApplicationId::CreditControl,
-        flags::REQUEST,
-        seq_id,
-        seq_id,
-    );
-    ccr.add_avp(avp!(264, None, M, Identity::new("host.example.com")));
-    ccr.add_avp(avp!(296, None, M, Identity::new("realm.example.com")));
-    ccr.add_avp(avp!(263, None, M, UTF8String::new("ses;12345888")));
-    ccr.add_avp(avp!(416, None, M, Enumerated::new(1)));
-    ccr.add_avp(avp!(415, None, M, Unsigned32::new(1000)));
-    ccr
 }
 
 fn calc_batch_interval(options: &Options) -> (u32, Duration, u32) {
