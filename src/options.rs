@@ -42,10 +42,18 @@ pub struct Value {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Variable {
-    pub func: String,
+    pub func: Function,
     pub min: u32,
     pub max: u32,
     pub step: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum Function {
+    IncrementalCounter,
+    RandomNumber,
+    CustomScript,
 }
 
 impl UserData for Options {}
@@ -113,7 +121,7 @@ mod tests {
         let expected_variables: HashMap<String, Variable> = [(
             "COUNTER".to_string(),
             Variable {
-                func: "incremental_counter".to_string(),
+                func: Function::IncrementalCounter,
                 min: 1,
                 max: 1000000000,
                 step: 1,
