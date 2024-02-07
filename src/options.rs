@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use mlua::prelude::LuaSerdeExt;
 use mlua::UserData;
 use serde::{Deserialize, Serialize};
@@ -9,6 +11,7 @@ pub struct Options {
     pub duration_s: u32,
     pub log_requests: bool,
     pub log_responses: bool,
+    pub variables: Vec<HashMap<String, Variable>>,
     pub scenarios: Vec<Scenario>,
 }
 
@@ -35,6 +38,14 @@ pub struct Avp {
 pub struct Value {
     pub constant: Option<String>,
     pub variable: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+pub struct Variable {
+    pub func: String,
+    pub min: u32,
+    pub max: u32,
+    pub step: u32,
 }
 
 impl UserData for Options {}
@@ -65,6 +76,16 @@ mod tests {
                     duration_s = 60, 
                     log_requests = false,
                     log_responses = false,
+                    variables = {
+                        {
+                            COUNTER = {
+                                func = "incremental_counter",
+                                min = 1,
+                                max = 1000000000,
+                                step = 1,
+                            },
+                        },
+                    },
                     scenarios = {
                         {
                             name = "CER",
@@ -88,6 +109,18 @@ mod tests {
         assert_eq!(options.duration_s, 60);
         assert_eq!(options.log_requests, false);
         assert_eq!(options.log_responses, false);
+        assert_eq!(options.variables.len(), 1);
+        let expected_variables: HashMap<String, Variable> = [(
+            "COUNTER".to_string(),
+            Variable {
+                func: "incremental_counter".to_string(),
+                min: 1,
+                max: 1000000000,
+                step: 1,
+            },
+        )]
+        .into();
+        assert_eq!(options.variables[0], expected_variables);
         assert_eq!(options.scenarios.len(), 1);
         assert_eq!(
             options.scenarios[0],

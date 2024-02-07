@@ -39,6 +39,7 @@ async fn main() {
     let rps = options.call_rate;
     let (batch_size, interval, total_iterations) = calc_batch_interval(&options);
 
+    log::debug!("Options is {:?}", options);
     log::info!(
         "Sending {} requests per second with batch size {}, interval {}",
         rps,
@@ -118,6 +119,7 @@ mod tests {
             duration_s: 120,
             log_requests: false,
             log_responses: false,
+            variables: vec![],
             scenarios: vec![],
         };
 

@@ -7,7 +7,16 @@ local option = {
     log_responses = true,
     -- log_requests = false,
     -- log_responses = false,
-
+    variables = {
+        {
+            COUNTER = {
+                func = "incremental_counter",
+                min = 1,
+                max = 1000000000,
+                step = 1,
+            },
+        },
+    },
     -- https://gull.sourceforge.net/doc/diameter.html
     scenarios = {
         {
