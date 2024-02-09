@@ -4,6 +4,8 @@ mod options;
 use crate::options::Options;
 use chrono::Local;
 use diameter::DiameterClient;
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::io::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
@@ -48,7 +50,34 @@ async fn main() {
     );
 
     let mut interval = time::interval(interval);
-    let mut generator = generator::Generator::new(&options).unwrap();
+
+    let mut global_variables = HashMap::new();
+    // for map in &options.variables {
+    //     for (var_name, _value) in map {
+    //         let variable = Variable {
+    //             name: var_name.clone(),
+    //             // TODO match Function type
+    //             value: Box::new(IncCounter {
+    //                 counter: RefCell::new(0),
+    //             }),
+    //         };
+    //         variables.insert(var_name.clone(), variable);
+    //     }
+    // }
+    for map in &options.variables {
+        for (var_name, _value) in map {
+            let variable = generator::Variable {
+                name: var_name.clone(),
+                // TODO match Function type
+                value: Box::new(generator::IncCounter {
+                    counter: RefCell::new(0),
+                }),
+            };
+            global_variables.insert(var_name.clone(), variable);
+        }
+    }
+
+    let mut generator = generator::Generator::new(&options, &mut global_variables).unwrap();
 
     // Connect to server
     let mut client = DiameterClient::new("localhost:3868");

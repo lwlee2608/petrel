@@ -19,32 +19,41 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::result::Result;
 
-pub struct Generator {
-    message: MessageGenerator,
-    pub variables: HashMap<String, Variable>,
+pub struct Generator<'a> {
+    message: MessageGenerator<'a>,
+    // pub variables: HashMap<String, Variable>,
+    // variables: HashMap<String, Variable>,
+    // scneario: &'b Scenario,
 }
 
-impl Generator {
-    pub fn new(options: &Options) -> Result<Self, Box<dyn Error>> {
+impl<'a> Generator<'a> {
+    pub fn new(
+        options: &Options,
+        global_variables: &'a HashMap<String, Variable>,
+    ) -> Result<Self, Box<dyn Error>> {
         // Create variables
-        let mut variables = HashMap::new();
-        for map in &options.variables {
-            for (var_name, _value) in map {
-                let variable = Variable {
-                    name: var_name.clone(),
-                    // TODO match Function type
-                    value: Box::new(IncCounter {
-                        counter: RefCell::new(0),
-                    }),
-                };
-                variables.insert(var_name.clone(), variable);
-            }
-        }
+        // let mut variables = HashMap::new();
+        // for map in &options.variables {
+        //     for (var_name, _value) in map {
+        //         let variable = Variable {
+        //             name: var_name.clone(),
+        //             // TODO match Function type
+        //             value: Box::new(IncCounter {
+        //                 counter: RefCell::new(0),
+        //             }),
+        //         };
+        //         variables.insert(var_name.clone(), variable);
+        //     }
+        // }
+
+        let message = MessageGenerator::new(&options.scenarios.get(1).unwrap(), &global_variables)?;
 
         // // TODO remove hardcode
         return Ok(Generator {
-            message: MessageGenerator::new(&options.scenarios.get(1).unwrap())?,
-            variables,
+            // variables,
+            // scneario: &options.scenarios.get(0).unwrap(),
+            message,
+            // message: MessageGenerator::new(&options.scenarios.get(1).unwrap(), &variables)?,
         });
     }
 
@@ -63,7 +72,8 @@ pub trait VarValue {
 }
 
 pub struct IncCounter {
-    counter: RefCell<i32>,
+    // TODO remove pub
+    pub counter: RefCell<i32>,
 }
 
 impl VarValue for IncCounter {
@@ -73,16 +83,19 @@ impl VarValue for IncCounter {
     }
 }
 
-pub struct MessageGenerator {
+pub struct MessageGenerator<'a> {
     command_code: CommandCode,
     application_id: ApplicationId,
     flags: u8,
     seq_num: u32,
-    avps: Vec<AvpGenerator>,
+    avps: Vec<AvpGenerator<'a>>,
 }
 
-impl MessageGenerator {
-    pub fn new(scenario: &Scenario) -> Result<Self, Box<dyn Error>> {
+impl<'a> MessageGenerator<'a> {
+    pub fn new(
+        scenario: &Scenario,
+        global_variables: &'a HashMap<String, Variable>,
+    ) -> Result<Self, Box<dyn Error>> {
         // TODO remove hardcode, get command_code and app_id from dictionary
         let command_code = CommandCode::CreditControl;
         let application_id = ApplicationId::CreditControl;
@@ -96,7 +109,7 @@ impl MessageGenerator {
                 .ok_or("AVP not found in dictionary")?;
 
             let value = match &a.value.variable {
-                Some(v) => ValueGenerator::Variable(VariableGenerator::new(v)),
+                Some(v) => ValueGenerator::Variable(VariableGenerator::new(v, global_variables)),
                 None => match &a.value.constant {
                     Some(c) => {
                         let v = string_to_avp_value(c, avp_definition.avp_type)?;
@@ -177,47 +190,55 @@ pub fn string_to_avp_value(str: &str, avp_type: AvpType) -> Result<AvpValue, Box
     Ok(value)
 }
 
-struct AvpGenerator {
+struct AvpGenerator<'a> {
     code: u32,
     vendor_id: Option<u32>,
     flags: u8,
     avp_type: AvpType,
-    value: ValueGenerator,
+    value: ValueGenerator<'a>,
 }
 
-enum ValueGenerator {
+enum ValueGenerator<'a> {
     Constant(AvpValue),
-    Variable(VariableGenerator),
+    Variable(VariableGenerator<'a>),
 }
 
-struct VariableGenerator {
+struct VariableGenerator<'a> {
     source: String,
-    functions: Vec<Box<dyn Function>>,
+    variables: Vec<&'a Variable>,
+    // functions: Vec<Box<dyn Function>>,
 }
 
-impl VariableGenerator {
-    pub fn new(source: &str) -> Self {
+impl<'a> VariableGenerator<'a> {
+    pub fn new(source: &str, global_var: &'a HashMap<String, Variable>) -> Self {
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
-        let mut functions: Vec<Box<dyn Function>> = Vec::new();
+        // let mut functions: Vec<Box<dyn Function>> = Vec::new();
+        let mut variables = vec![];
 
         for caps in variable_pattern.captures_iter(source) {
             let cap = caps[1].to_string();
-            if cap == "COUNTER" {
-                functions.push(Box::new(CounterFunction::new()));
-                continue;
-            }
+            let var = global_var.get(&cap).unwrap();
+            variables.push(var);
+
+            // if cap == "COUNTER" {
+            //     functions.push(Box::new(CounterFunction::new()));
+            //     continue;
+            // }
         }
 
         VariableGenerator {
             source: source.into(),
-            functions,
+            variables,
+            // functions,
         }
     }
 
     fn compute(&self) -> String {
-        let function = &self.functions[0];
-        let counter = function.execute();
-        let name = function.name();
+        // let function = &self.functions[0];
+        // let counter = function.execute();
+        // let name = function.name();
+        let counter = self.variables[0].value.get();
+        let name = &self.variables[0].name;
         let result = self.source.replace(&format!("${{{}}}", name), &counter);
         result
     }
@@ -264,7 +285,18 @@ mod tests {
 
     #[test]
     fn test_variable() {
-        let variable = VariableGenerator::new("ses;${COUNTER}");
+        let mut variables = HashMap::new();
+        variables.insert(
+            "COUNTER".to_string(),
+            Variable {
+                name: "COUNTER".to_string(),
+                value: Box::new(IncCounter {
+                    counter: RefCell::new(0),
+                }),
+            },
+        );
+
+        let variable = VariableGenerator::new("ses;${COUNTER}", &variables);
 
         assert_eq!("ses;1", variable.compute());
         assert_eq!("ses;2", variable.compute());
