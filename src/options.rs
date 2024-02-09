@@ -43,9 +43,9 @@ pub struct Value {
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Variable {
     pub func: Function,
-    pub min: u32,
-    pub max: u32,
-    pub step: u32,
+    pub min: i32,
+    pub max: i32,
+    pub step: i32,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

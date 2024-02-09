@@ -1,3 +1,4 @@
+use crate::options;
 use crate::options::Options;
 use crate::options::Scenario;
 use diameter::avp::Address;
@@ -72,14 +73,31 @@ pub trait VarValue {
 }
 
 pub struct IncCounter {
-    // TODO remove pub
-    pub counter: RefCell<i32>,
+    counter: RefCell<i32>,
+    max: i32,
+    min: i32,
+    step: i32,
+}
+
+impl IncCounter {
+    pub fn new(option: &options::Variable) -> Self {
+        IncCounter {
+            counter: RefCell::new(option.min),
+            max: option.max,
+            min: option.min,
+            step: option.step,
+        }
+    }
 }
 
 impl VarValue for IncCounter {
     fn get(&self) -> String {
-        *self.counter.borrow_mut() += 1;
-        self.counter.borrow().to_string()
+        let value = *self.counter.borrow();
+        *self.counter.borrow_mut() += self.step;
+        if *self.counter.borrow() > self.max {
+            *self.counter.borrow_mut() = self.min;
+        }
+        value.to_string()
     }
 }
 
@@ -249,35 +267,35 @@ impl<'a> VariableGenerator<'a> {
     }
 }
 
-pub trait Function {
-    fn execute(&self) -> String;
-    fn name(&self) -> String;
-}
-
-struct CounterFunction {
-    name: String,
-    counter: RefCell<i32>, // Hopefully this doesn't explode
-}
-
-impl CounterFunction {
-    pub fn new() -> Self {
-        CounterFunction {
-            name: "COUNTER".to_string(),
-            counter: RefCell::new(0),
-        }
-    }
-}
-
-impl Function for CounterFunction {
-    fn execute(&self) -> String {
-        *self.counter.borrow_mut() += 1;
-        self.counter.borrow().to_string()
-    }
-
-    fn name(&self) -> String {
-        self.name.clone()
-    }
-}
+// pub trait Function {
+//     fn execute(&self) -> String;
+//     fn name(&self) -> String;
+// }
+//
+// struct CounterFunction {
+//     name: String,
+//     counter: RefCell<i32>, // Hopefully this doesn't explode
+// }
+//
+// impl CounterFunction {
+//     pub fn new() -> Self {
+//         CounterFunction {
+//             name: "COUNTER".to_string(),
+//             counter: RefCell::new(0),
+//         }
+//     }
+// }
+//
+// impl Function for CounterFunction {
+//     fn execute(&self) -> String {
+//         *self.counter.borrow_mut() += 1;
+//         self.counter.borrow().to_string()
+//     }
+//
+//     fn name(&self) -> String {
+//         self.name.clone()
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -291,7 +309,10 @@ mod tests {
             Variable {
                 name: "COUNTER".to_string(),
                 value: Box::new(IncCounter {
-                    counter: RefCell::new(0),
+                    counter: RefCell::new(1),
+                    max: 5,
+                    min: 1,
+                    step: 3,
                 }),
             },
         );
@@ -299,7 +320,7 @@ mod tests {
         let variable = VariableGenerator::new("ses;${COUNTER}", &variables);
 
         assert_eq!("ses;1", variable.compute());
-        assert_eq!("ses;2", variable.compute());
-        assert_eq!("ses;3", variable.compute());
+        assert_eq!("ses;4", variable.compute());
+        assert_eq!("ses;1", variable.compute());
     }
 }

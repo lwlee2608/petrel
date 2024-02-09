@@ -11,9 +11,9 @@ local option = {
         {
             COUNTER = {
                 func = "incremental_counter",
-                min = 1,
-                max = 1000000000,
-                step = 1,
+                min = 100000000,
+                max = 900000000,
+                step = 10,
             },
         },
     },
