@@ -48,11 +48,7 @@ async fn main() {
     );
 
     let mut interval = time::interval(interval);
-
-    // Generate Request
-    // TODO remove hardcode
-    let mut generator =
-        generator::MessageGenerator::new(&options.scenarios.get(1).unwrap()).unwrap();
+    let mut generator = generator::Generator::new(&options).unwrap();
 
     // Connect to server
     let mut client = DiameterClient::new("localhost:3868");
@@ -67,7 +63,7 @@ async fn main() {
 
         for _ in 0..batch_size {
             // let ccr = ccr(client.get_next_seq_num());
-            let ccr = generator.message().unwrap();
+            let ccr = generator.next_message().unwrap();
             if options.log_requests {
                 log::info!("Request: {}", ccr);
             }

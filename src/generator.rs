@@ -1,3 +1,4 @@
+use crate::options::Options;
 use crate::options::Scenario;
 use diameter::avp::Address;
 use diameter::avp::Avp;
@@ -14,8 +15,63 @@ use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
 use regex::Regex;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::error::Error;
 use std::result::Result;
+
+pub struct Generator {
+    message: MessageGenerator,
+    pub variables: HashMap<String, Variable>,
+}
+
+impl Generator {
+    pub fn new(options: &Options) -> Result<Self, Box<dyn Error>> {
+        // Create variables
+        let mut variables = HashMap::new();
+        for map in &options.variables {
+            for (var_name, _value) in map {
+                let variable = Variable {
+                    name: var_name.clone(),
+                    // TODO match Function type
+                    value: Box::new(IncCounter {
+                        counter: RefCell::new(0),
+                    }),
+                };
+                variables.insert(var_name.clone(), variable);
+            }
+        }
+
+        // // TODO remove hardcode
+        return Ok(Generator {
+            message: MessageGenerator::new(&options.scenarios.get(1).unwrap())?,
+            variables,
+        });
+    }
+
+    pub fn next_message(&mut self) -> Result<DiameterMessage, Box<dyn Error>> {
+        self.message.message()
+    }
+}
+
+pub struct Variable {
+    pub name: String,
+    pub value: Box<dyn VarValue>,
+}
+
+pub trait VarValue {
+    fn get(&self) -> String;
+}
+
+pub struct IncCounter {
+    counter: RefCell<i32>,
+}
+
+impl VarValue for IncCounter {
+    fn get(&self) -> String {
+        *self.counter.borrow_mut() += 1;
+        self.counter.borrow().to_string()
+    }
+}
 
 pub struct MessageGenerator {
     command_code: CommandCode,
