@@ -1,4 +1,5 @@
-use crate::options;
+use crate::global::Global;
+use crate::global::Variable;
 use crate::options::Options;
 use crate::options::Scenario;
 use diameter::avp::Address;
@@ -15,89 +16,22 @@ use diameter::dictionary;
 use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
 use regex::Regex;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::error::Error;
 use std::result::Result;
 
 pub struct Generator<'a> {
     message: MessageGenerator<'a>,
-    // pub variables: HashMap<String, Variable>,
-    // variables: HashMap<String, Variable>,
-    // scneario: &'b Scenario,
 }
 
 impl<'a> Generator<'a> {
-    pub fn new(
-        options: &Options,
-        global_variables: &'a HashMap<String, Variable>,
-    ) -> Result<Self, Box<dyn Error>> {
-        // Create variables
-        // let mut variables = HashMap::new();
-        // for map in &options.variables {
-        //     for (var_name, _value) in map {
-        //         let variable = Variable {
-        //             name: var_name.clone(),
-        //             // TODO match Function type
-        //             value: Box::new(IncCounter {
-        //                 counter: RefCell::new(0),
-        //             }),
-        //         };
-        //         variables.insert(var_name.clone(), variable);
-        //     }
-        // }
-
-        let message = MessageGenerator::new(&options.scenarios.get(1).unwrap(), &global_variables)?;
-
-        // // TODO remove hardcode
+    pub fn new(options: &Options, global: &'a Global) -> Result<Self, Box<dyn Error>> {
         return Ok(Generator {
-            // variables,
-            // scneario: &options.scenarios.get(0).unwrap(),
-            message,
-            // message: MessageGenerator::new(&options.scenarios.get(1).unwrap(), &variables)?,
+            message: MessageGenerator::new(&options.scenarios.get(1).unwrap(), global)?,
         });
     }
 
     pub fn next_message(&mut self) -> Result<DiameterMessage, Box<dyn Error>> {
         self.message.message()
-    }
-}
-
-pub struct Variable {
-    pub name: String,
-    pub value: Box<dyn VarValue>,
-}
-
-pub trait VarValue {
-    fn get(&self) -> String;
-}
-
-pub struct IncCounter {
-    counter: RefCell<i32>,
-    max: i32,
-    min: i32,
-    step: i32,
-}
-
-impl IncCounter {
-    pub fn new(option: &options::Variable) -> Self {
-        IncCounter {
-            counter: RefCell::new(option.min),
-            max: option.max,
-            min: option.min,
-            step: option.step,
-        }
-    }
-}
-
-impl VarValue for IncCounter {
-    fn get(&self) -> String {
-        let value = *self.counter.borrow();
-        *self.counter.borrow_mut() += self.step;
-        if *self.counter.borrow() > self.max {
-            *self.counter.borrow_mut() = self.min;
-        }
-        value.to_string()
     }
 }
 
@@ -110,10 +44,7 @@ pub struct MessageGenerator<'a> {
 }
 
 impl<'a> MessageGenerator<'a> {
-    pub fn new(
-        scenario: &Scenario,
-        global_variables: &'a HashMap<String, Variable>,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn new(scenario: &Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
         // TODO remove hardcode, get command_code and app_id from dictionary
         let command_code = CommandCode::CreditControl;
         let application_id = ApplicationId::CreditControl;
@@ -127,7 +58,7 @@ impl<'a> MessageGenerator<'a> {
                 .ok_or("AVP not found in dictionary")?;
 
             let value = match &a.value.variable {
-                Some(v) => ValueGenerator::Variable(VariableGenerator::new(v, global_variables)),
+                Some(v) => ValueGenerator::Variable(VariableGenerator::new(v, global)),
                 None => match &a.value.constant {
                     Some(c) => {
                         let v = string_to_avp_value(c, avp_definition.avp_type)?;
@@ -228,14 +159,14 @@ struct VariableGenerator<'a> {
 }
 
 impl<'a> VariableGenerator<'a> {
-    pub fn new(source: &str, global_var: &'a HashMap<String, Variable>) -> Self {
+    pub fn new(source: &str, global: &'a Global) -> Self {
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
         // let mut functions: Vec<Box<dyn Function>> = Vec::new();
         let mut variables = vec![];
 
         for caps in variable_pattern.captures_iter(source) {
             let cap = caps[1].to_string();
-            let var = global_var.get(&cap).unwrap();
+            let var = global.get_variable(&cap).unwrap();
             variables.push(var);
 
             // if cap == "COUNTER" {
@@ -267,57 +198,33 @@ impl<'a> VariableGenerator<'a> {
     }
 }
 
-// pub trait Function {
-//     fn execute(&self) -> String;
-//     fn name(&self) -> String;
-// }
-//
-// struct CounterFunction {
-//     name: String,
-//     counter: RefCell<i32>, // Hopefully this doesn't explode
-// }
-//
-// impl CounterFunction {
-//     pub fn new() -> Self {
-//         CounterFunction {
-//             name: "COUNTER".to_string(),
-//             counter: RefCell::new(0),
-//         }
-//     }
-// }
-//
-// impl Function for CounterFunction {
-//     fn execute(&self) -> String {
-//         *self.counter.borrow_mut() += 1;
-//         self.counter.borrow().to_string()
-//     }
-//
-//     fn name(&self) -> String {
-//         self.name.clone()
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::options;
 
     #[test]
     fn test_variable() {
-        let mut variables = HashMap::new();
-        variables.insert(
-            "COUNTER".to_string(),
-            Variable {
-                name: "COUNTER".to_string(),
-                value: Box::new(IncCounter {
-                    counter: RefCell::new(1),
-                    max: 5,
+        let global = Global::new(&options::Options {
+            call_rate: 500,
+            call_timeout_ms: 2000,
+            duration_s: 120,
+            log_requests: false,
+            log_responses: false,
+            variables: vec![std::iter::once((
+                "COUNTER".into(),
+                options::Variable {
+                    func: options::Function::IncrementalCounter,
                     min: 1,
+                    max: 5,
                     step: 3,
-                }),
-            },
-        );
+                },
+            ))
+            .collect()],
+            scenarios: vec![],
+        });
 
-        let variable = VariableGenerator::new("ses;${COUNTER}", &variables);
+        let variable = VariableGenerator::new("ses;${COUNTER}", &global);
 
         assert_eq!("ses;1", variable.compute());
         assert_eq!("ses;4", variable.compute());
