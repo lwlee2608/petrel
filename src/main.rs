@@ -1,6 +1,6 @@
-mod generator;
 mod global;
 mod options;
+mod scenario;
 
 use crate::global::Global;
 use crate::options::Options;
@@ -52,7 +52,7 @@ async fn main() {
     let mut interval = time::interval(interval);
 
     let global = Global::new(&options.globals);
-    let mut generator = generator::Generator::new(&options, &global).unwrap();
+    let mut scenario = scenario::Scenario::new(&options, &global).unwrap();
 
     // Connect to server
     let mut client = DiameterClient::new("localhost:3868");
@@ -67,7 +67,7 @@ async fn main() {
 
         for _ in 0..batch_size {
             // let ccr = ccr(client.get_next_seq_num());
-            let ccr = generator.next_message().unwrap();
+            let ccr = scenario.next_message().unwrap();
             if options.log_requests {
                 log::info!("Request: {}", ccr);
             }

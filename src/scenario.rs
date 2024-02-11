@@ -1,9 +1,8 @@
+use crate::global;
 use crate::global::Global;
-use crate::global::Variable;
+use crate::options;
 use crate::options::Options;
-use crate::options::Scenario;
 use diameter::avp::Address;
-use diameter::avp::Avp;
 use diameter::avp::AvpType;
 use diameter::avp::AvpValue;
 use diameter::avp::Enumerated;
@@ -19,14 +18,14 @@ use regex::Regex;
 use std::error::Error;
 use std::result::Result;
 
-pub struct Generator<'a> {
-    message: MessageGenerator<'a>,
+pub struct Scenario<'a> {
+    message: Message<'a>,
 }
 
-impl<'a> Generator<'a> {
+impl<'a> Scenario<'a> {
     pub fn new(options: &Options, global: &'a Global) -> Result<Self, Box<dyn Error>> {
-        return Ok(Generator {
-            message: MessageGenerator::new(&options.scenarios.get(1).unwrap(), global)?,
+        return Ok(Scenario {
+            message: Message::new(&options.scenarios.get(1).unwrap(), global)?,
         });
     }
 
@@ -35,16 +34,16 @@ impl<'a> Generator<'a> {
     }
 }
 
-pub struct MessageGenerator<'a> {
+pub struct Message<'a> {
     command_code: CommandCode,
     application_id: ApplicationId,
     flags: u8,
     seq_num: u32,
-    avps: Vec<AvpGenerator<'a>>,
+    avps: Vec<Avp<'a>>,
 }
 
-impl<'a> MessageGenerator<'a> {
-    pub fn new(scenario: &Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
+impl<'a> Message<'a> {
+    pub fn new(scenario: &options::Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
         // TODO remove hardcode, get command_code and app_id from dictionary
         // TODO!
         let command_code = CommandCode::CreditControl;
@@ -75,7 +74,7 @@ impl<'a> MessageGenerator<'a> {
                 },
             };
 
-            let avp = AvpGenerator {
+            let avp = Avp {
                 code: avp_definition.code,
                 vendor_id: None, // TODO remove hardcode, avp_definition.vendor_id,
                 flags: 0,        // TODO remove hardcode, avp_definition.flags,
@@ -86,7 +85,7 @@ impl<'a> MessageGenerator<'a> {
             avps.push(avp);
         }
 
-        Ok(MessageGenerator {
+        Ok(Message {
             command_code,
             application_id,
             flags,
@@ -110,14 +109,22 @@ impl<'a> MessageGenerator<'a> {
                 ValueGenerator::Constant(v) => v.clone(),
                 ValueGenerator::Variable(v) => v.get_value(avp.avp_type)?,
             };
-            diameter_msg.add_avp(Avp::new(avp.code, avp.vendor_id, avp.flags, value));
+            diameter_msg.add_avp(diameter::avp::Avp::new(
+                avp.code,
+                avp.vendor_id,
+                avp.flags,
+                value,
+            ));
         }
 
         Ok(diameter_msg)
     }
 }
 
-pub fn string_to_avp_value(str: &str, avp_type: AvpType) -> Result<AvpValue, Box<dyn Error>> {
+pub fn string_to_avp_value(
+    str: &str,
+    avp_type: diameter::avp::AvpType,
+) -> Result<AvpValue, Box<dyn Error>> {
     let value = match avp_type {
         AvpType::Address => Address::new(str.as_bytes().to_vec()).into(),
         AvpType::AddressIPv4 => Address::new(str.as_bytes().to_vec()).into(),
@@ -140,11 +147,11 @@ pub fn string_to_avp_value(str: &str, avp_type: AvpType) -> Result<AvpValue, Box
     Ok(value)
 }
 
-struct AvpGenerator<'a> {
+struct Avp<'a> {
     code: u32,
     vendor_id: Option<u32>,
     flags: u8,
-    avp_type: AvpType,
+    avp_type: diameter::avp::AvpType,
     value: ValueGenerator<'a>,
 }
 
@@ -155,7 +162,7 @@ enum ValueGenerator<'a> {
 
 struct VariableGenerator<'a> {
     source: String,
-    variables: Vec<&'a Variable>,
+    variables: Vec<&'a global::Variable>,
     // functions: Vec<Box<dyn Function>>,
 }
 
@@ -186,7 +193,7 @@ impl<'a> VariableGenerator<'a> {
         result
     }
 
-    pub fn get_value(&self, avp_type: AvpType) -> Result<AvpValue, Box<dyn Error>> {
+    pub fn get_value(&self, avp_type: diameter::avp::AvpType) -> Result<AvpValue, Box<dyn Error>> {
         let value = self.compute();
         Ok(string_to_avp_value(&value, avp_type)?)
     }
