@@ -51,7 +51,7 @@ async fn main() {
 
     let mut interval = time::interval(interval);
 
-    let global = Global::new(&options);
+    let global = Global::new(&options.globals);
     let mut generator = generator::Generator::new(&options, &global).unwrap();
 
     // Connect to server
@@ -119,7 +119,7 @@ mod tests {
             duration_s: 120,
             log_requests: false,
             log_responses: false,
-            variables: vec![],
+            globals: options::Global { variables: vec![] },
             scenarios: vec![],
         };
 

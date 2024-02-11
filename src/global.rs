@@ -1,4 +1,4 @@
-use crate::options::{self, Options};
+use crate::options;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -7,7 +7,7 @@ pub struct Global {
 }
 
 impl Global {
-    pub fn new(options: &Options) -> Self {
+    pub fn new(options: &options::Global) -> Self {
         let mut variables = HashMap::new();
         for map in &options.variables {
             for (var_name, value) in map {

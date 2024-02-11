@@ -199,12 +199,7 @@ mod tests {
 
     #[test]
     fn test_constant() {
-        let global = Global::new(&options::Options {
-            call_rate: 500,
-            call_timeout_ms: 2000,
-            duration_s: 120,
-            log_requests: false,
-            log_responses: false,
+        let global = Global::new(&options::Global {
             variables: vec![std::iter::once((
                 "COUNTER".into(),
                 options::Variable {
@@ -215,7 +210,6 @@ mod tests {
                 },
             ))
             .collect()],
-            scenarios: vec![],
         });
 
         let variable = VariableGenerator::new("example.origin.host", &global);
@@ -227,12 +221,7 @@ mod tests {
 
     #[test]
     fn test_counter_variable() {
-        let global = Global::new(&options::Options {
-            call_rate: 500,
-            call_timeout_ms: 2000,
-            duration_s: 120,
-            log_requests: false,
-            log_responses: false,
+        let global = Global::new(&options::Global {
             variables: vec![std::iter::once((
                 "COUNTER".into(),
                 options::Variable {
@@ -243,7 +232,6 @@ mod tests {
                 },
             ))
             .collect()],
-            scenarios: vec![],
         });
 
         let variable = VariableGenerator::new("ses;${COUNTER}", &global);
@@ -255,12 +243,7 @@ mod tests {
 
     #[test]
     fn test_2_counters_variable() {
-        let global = Global::new(&options::Options {
-            call_rate: 500,
-            call_timeout_ms: 2000,
-            duration_s: 120,
-            log_requests: false,
-            log_responses: false,
+        let global = Global::new(&options::Global {
             variables: vec![
                 std::iter::once((
                     "COUNTER1".into(),
@@ -283,7 +266,6 @@ mod tests {
                 ))
                 .collect(),
             ],
-            scenarios: vec![],
         });
 
         let variable = VariableGenerator::new("ses;${COUNTER1}_${COUNTER2}", &global);

@@ -7,13 +7,15 @@ local option = {
     log_responses = true,
     -- log_requests = false,
     -- log_responses = false,
-    variables = {
-        {
-            COUNTER = {
-                func = "incremental_counter",
-                min = 100000000,
-                max = 900000000,
-                step = 10,
+    globals = {
+        variables = {
+            {
+                COUNTER = {
+                    func = "incremental_counter",
+                    min = 100000000,
+                    max = 900000000,
+                    step = 10,
+                },
             },
         },
     },
