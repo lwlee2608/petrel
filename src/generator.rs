@@ -46,6 +46,7 @@ pub struct MessageGenerator<'a> {
 impl<'a> MessageGenerator<'a> {
     pub fn new(scenario: &Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
         // TODO remove hardcode, get command_code and app_id from dictionary
+        // TODO!
         let command_code = CommandCode::CreditControl;
         let application_id = ApplicationId::CreditControl;
         let flags = flags::REQUEST;
@@ -161,34 +162,27 @@ struct VariableGenerator<'a> {
 impl<'a> VariableGenerator<'a> {
     pub fn new(source: &str, global: &'a Global) -> Self {
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
-        // let mut functions: Vec<Box<dyn Function>> = Vec::new();
         let mut variables = vec![];
 
         for caps in variable_pattern.captures_iter(source) {
             let cap = caps[1].to_string();
             let var = global.get_variable(&cap).unwrap();
             variables.push(var);
-
-            // if cap == "COUNTER" {
-            //     functions.push(Box::new(CounterFunction::new()));
-            //     continue;
-            // }
         }
 
         VariableGenerator {
             source: source.into(),
             variables,
-            // functions,
         }
     }
 
     fn compute(&self) -> String {
-        // let function = &self.functions[0];
-        // let counter = function.execute();
-        // let name = function.name();
-        let counter = self.variables[0].value.get();
-        let name = &self.variables[0].name;
-        let result = self.source.replace(&format!("${{{}}}", name), &counter);
+        let mut result: String = self.source.clone();
+        for v in &self.variables {
+            let counter = v.value.get();
+            let name = &v.name;
+            result = result.replace(&format!("${{{}}}", name), &counter);
+        }
         result
     }
 
@@ -204,7 +198,35 @@ mod tests {
     use crate::options;
 
     #[test]
-    fn test_variable() {
+    fn test_constant() {
+        let global = Global::new(&options::Options {
+            call_rate: 500,
+            call_timeout_ms: 2000,
+            duration_s: 120,
+            log_requests: false,
+            log_responses: false,
+            variables: vec![std::iter::once((
+                "COUNTER".into(),
+                options::Variable {
+                    func: options::Function::IncrementalCounter,
+                    min: 1,
+                    max: 5,
+                    step: 3,
+                },
+            ))
+            .collect()],
+            scenarios: vec![],
+        });
+
+        let variable = VariableGenerator::new("example.origin.host", &global);
+
+        assert_eq!("example.origin.host", variable.compute());
+        assert_eq!("example.origin.host", variable.compute());
+        assert_eq!("example.origin.host", variable.compute());
+    }
+
+    #[test]
+    fn test_counter_variable() {
         let global = Global::new(&options::Options {
             call_rate: 500,
             call_timeout_ms: 2000,
@@ -229,5 +251,45 @@ mod tests {
         assert_eq!("ses;1", variable.compute());
         assert_eq!("ses;4", variable.compute());
         assert_eq!("ses;1", variable.compute());
+    }
+
+    #[test]
+    fn test_2_counters_variable() {
+        let global = Global::new(&options::Options {
+            call_rate: 500,
+            call_timeout_ms: 2000,
+            duration_s: 120,
+            log_requests: false,
+            log_responses: false,
+            variables: vec![
+                std::iter::once((
+                    "COUNTER1".into(),
+                    options::Variable {
+                        func: options::Function::IncrementalCounter,
+                        min: 0,
+                        max: 5,
+                        step: 1,
+                    },
+                ))
+                .collect(),
+                std::iter::once((
+                    "COUNTER2".into(),
+                    options::Variable {
+                        func: options::Function::IncrementalCounter,
+                        min: 1,
+                        max: 5,
+                        step: 3,
+                    },
+                ))
+                .collect(),
+            ],
+            scenarios: vec![],
+        });
+
+        let variable = VariableGenerator::new("ses;${COUNTER1}_${COUNTER2}", &global);
+
+        assert_eq!("ses;0_1", variable.compute());
+        assert_eq!("ses;1_4", variable.compute());
+        assert_eq!("ses;2_1", variable.compute());
     }
 }
