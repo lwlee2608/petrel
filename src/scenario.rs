@@ -57,28 +57,12 @@ impl<'a> Message<'a> {
                 .get_avp_by_name(&a.name)
                 .ok_or("AVP not found in dictionary")?;
 
-            let value = match &a.value.variable {
-                Some(v) => ValueGenerator::Variable(VariableGenerator::new(v, global)),
-                None => match &a.value.constant {
-                    Some(c) => {
-                        let v = string_to_avp_value(c, avp_definition.avp_type)?;
-                        ValueGenerator::Constant(v)
-                    }
-                    None => {
-                        return Err(format!(
-                            "Both constant and variable for avp {} are None",
-                            a.name
-                        )
-                        .into());
-                    }
-                },
-            };
+            let value = Value::new(&a.value, avp_definition.avp_type, global);
 
             let avp = Avp {
                 code: avp_definition.code,
                 vendor_id: None, // TODO remove hardcode, avp_definition.vendor_id,
                 flags: 0,        // TODO remove hardcode, avp_definition.flags,
-                avp_type: avp_definition.avp_type,
                 value,
             };
 
@@ -105,10 +89,7 @@ impl<'a> Message<'a> {
         );
 
         for avp in &self.avps {
-            let value: AvpValue = match &avp.value {
-                ValueGenerator::Constant(v) => v.clone(),
-                ValueGenerator::Variable(v) => v.get_value(avp.avp_type)?,
-            };
+            let value = avp.value.get_value()?;
             diameter_msg.add_avp(diameter::avp::Avp::new(
                 avp.code,
                 avp.vendor_id,
@@ -151,23 +132,18 @@ struct Avp<'a> {
     code: u32,
     vendor_id: Option<u32>,
     flags: u8,
-    avp_type: diameter::avp::AvpType,
-    value: ValueGenerator<'a>,
+    value: Value<'a>,
 }
 
-enum ValueGenerator<'a> {
-    Constant(AvpValue),
-    Variable(VariableGenerator<'a>),
-}
-
-struct VariableGenerator<'a> {
+struct Value<'a> {
     source: String,
+    avp_type: diameter::avp::AvpType,
     variables: Vec<&'a global::Variable>,
     constant: Option<AvpValue>,
 }
 
-impl<'a> VariableGenerator<'a> {
-    pub fn new(source: &str, global: &'a Global) -> Self {
+impl<'a> Value<'a> {
+    pub fn new(source: &str, avp_type: diameter::avp::AvpType, global: &'a Global) -> Self {
         // Scan for variables
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
         let mut variables = vec![];
@@ -179,16 +155,15 @@ impl<'a> VariableGenerator<'a> {
 
         // If no variable found, make this a constant
         let constant = if variables.is_empty() {
-            println!("No variable found in {}, make this a constant", source);
-            let value = string_to_avp_value(source, diameter::avp::AvpType::UTF8String).unwrap();
+            let value = string_to_avp_value(source, avp_type).unwrap();
             Some(value)
         } else {
-            println!("Variable found in {}, make this a variable", source);
             None
         };
 
-        VariableGenerator {
+        Value {
             source: source.into(),
+            avp_type,
             variables,
             constant,
         }
@@ -204,10 +179,10 @@ impl<'a> VariableGenerator<'a> {
         result
     }
 
-    pub fn get_value(&self, avp_type: diameter::avp::AvpType) -> Result<AvpValue, Box<dyn Error>> {
+    pub fn get_value(&self) -> Result<AvpValue, Box<dyn Error>> {
         match &self.constant {
             Some(v) => Ok(v.clone()),
-            None => Ok(string_to_avp_value(&self.compute(), avp_type)?),
+            None => Ok(string_to_avp_value(&self.compute(), self.avp_type)?),
         }
     }
 }
@@ -232,7 +207,7 @@ mod tests {
             .collect()],
         });
 
-        let variable = VariableGenerator::new("example.origin.host", &global);
+        let variable = Value::new("example.origin.host", AvpType::UTF8String, &global);
 
         assert_eq!("example.origin.host", variable.compute());
         assert_eq!("example.origin.host", variable.compute());
@@ -254,7 +229,7 @@ mod tests {
             .collect()],
         });
 
-        let variable = VariableGenerator::new("ses;${COUNTER}", &global);
+        let variable = Value::new("ses;${COUNTER}", AvpType::UTF8String, &global);
 
         assert_eq!("ses;1", variable.compute());
         assert_eq!("ses;4", variable.compute());
@@ -288,7 +263,7 @@ mod tests {
             ],
         });
 
-        let variable = VariableGenerator::new("ses;${COUNTER1}_${COUNTER2}", &global);
+        let variable = Value::new("ses;${COUNTER1}_${COUNTER2}", AvpType::UTF8String, &global);
 
         assert_eq!("ses;0_1", variable.compute());
         assert_eq!("ses;1_4", variable.compute());
