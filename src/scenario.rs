@@ -163,23 +163,34 @@ enum ValueGenerator<'a> {
 struct VariableGenerator<'a> {
     source: String,
     variables: Vec<&'a global::Variable>,
-    // functions: Vec<Box<dyn Function>>,
+    constant: Option<AvpValue>,
 }
 
 impl<'a> VariableGenerator<'a> {
     pub fn new(source: &str, global: &'a Global) -> Self {
+        // Scan for variables
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
         let mut variables = vec![];
-
         for caps in variable_pattern.captures_iter(source) {
             let cap = caps[1].to_string();
             let var = global.get_variable(&cap).unwrap();
             variables.push(var);
         }
 
+        // If no variable found, make this a constant
+        let constant = if variables.is_empty() {
+            println!("No variable found in {}, make this a constant", source);
+            let value = string_to_avp_value(source, diameter::avp::AvpType::UTF8String).unwrap();
+            Some(value)
+        } else {
+            println!("Variable found in {}, make this a variable", source);
+            None
+        };
+
         VariableGenerator {
             source: source.into(),
             variables,
+            constant,
         }
     }
 
@@ -194,8 +205,10 @@ impl<'a> VariableGenerator<'a> {
     }
 
     pub fn get_value(&self, avp_type: diameter::avp::AvpType) -> Result<AvpValue, Box<dyn Error>> {
-        let value = self.compute();
-        Ok(string_to_avp_value(&value, avp_type)?)
+        match &self.constant {
+            Some(v) => Ok(v.clone()),
+            None => Ok(string_to_avp_value(&self.compute(), avp_type)?),
+        }
     }
 }
 
