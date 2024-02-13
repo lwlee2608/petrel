@@ -43,7 +43,7 @@ local option = {
         {
             name = "CCR",
             message = {
-                command = "CreditControl", application = "CreditControl", flags = 0,
+                command = "Credit-Control", application = "Charging Control", flags = 0,
                 avps = {
                     { name = "Origin-Host", value = "host.example.com" },
                     { name = "Origin-Realm", value = "realm.example.com" },

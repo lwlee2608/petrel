@@ -39,6 +39,8 @@ pub struct Global {
     pub variables: Vec<HashMap<String, Variable>>,
 }
 
+// TODO Different function should have different fields
+// eg. random_number should not have 'step' field
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Variable {
     pub func: Function,

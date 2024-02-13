@@ -44,10 +44,20 @@ pub struct Message<'a> {
 
 impl<'a> Message<'a> {
     pub fn new(scenario: &options::Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
-        // TODO remove hardcode, get command_code and app_id from dictionary
-        // TODO!
-        let command_code = CommandCode::CreditControl;
-        let application_id = ApplicationId::CreditControl;
+        let command_code = dictionary::DEFAULT_DICT
+            .get_command_code_by_name(&scenario.message.command)
+            .ok_or(format!(
+                "Unknown Command-Code '{}'",
+                scenario.message.command
+            ))?;
+
+        let application_id = dictionary::DEFAULT_DICT
+            .get_application_id_by_name(&scenario.message.application)
+            .ok_or(format!(
+                "Unknown Application-Id '{}'",
+                scenario.message.application
+            ))?;
+
         let flags = flags::REQUEST;
 
         let mut avps = vec![];
