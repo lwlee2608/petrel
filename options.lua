@@ -17,6 +17,14 @@ local option = {
                     step = 10,
                 },
             },
+            {
+                RANDOM = {
+                    func = "random_number",
+                    min = 1000,
+                    max = 9999,
+                    step = 1,
+                }
+            },
         },
     },
     -- https://gull.sourceforge.net/doc/diameter.html
@@ -40,7 +48,7 @@ local option = {
                     { name = "Origin-Host", value = "host.example.com" },
                     { name = "Origin-Realm", value = "realm.example.com" },
                     { name = "Product-Name", value = "Petrel" },
-                    { name = "Session-Id", value = "ses;${COUNTER}" },
+                    { name = "Session-Id", value = "ses;${COUNTER}_${RANDOM}" },
                     { name = "CC-Request-Type", value = "1" },
                     { name = "CC-Request-Number", value = "100" },
                 },

@@ -1,4 +1,5 @@
 use crate::options;
+use rand::Rng;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -13,8 +14,11 @@ impl Global {
             for (var_name, value) in map {
                 let variable = Variable {
                     name: var_name.clone(),
-                    // TODO match Function type
-                    value: Box::new(IncCounter::new(value)),
+                    value: match value.func {
+                        options::Function::IncrementalCounter => Box::new(IncCounter::new(value)),
+                        options::Function::RandomNumber => Box::new(Random::new(value)),
+                        _ => todo!("Function not implemented"),
+                    },
                 };
                 variables.insert(var_name.clone(), variable);
             }
@@ -29,10 +33,10 @@ impl Global {
 
 pub struct Variable {
     pub name: String,
-    pub value: Box<dyn VarValue>,
+    pub value: Box<dyn Function>,
 }
 
-pub trait VarValue {
+pub trait Function {
     fn get(&self) -> String;
 }
 
@@ -54,13 +58,35 @@ impl IncCounter {
     }
 }
 
-impl VarValue for IncCounter {
+impl Function for IncCounter {
     fn get(&self) -> String {
         let value = *self.counter.borrow();
         *self.counter.borrow_mut() += self.step;
         if *self.counter.borrow() > self.max {
             *self.counter.borrow_mut() = self.min;
         }
+        value.to_string()
+    }
+}
+
+pub struct Random {
+    min: i32,
+    max: i32,
+}
+
+impl Random {
+    pub fn new(option: &options::Variable) -> Self {
+        Random {
+            min: option.min,
+            max: option.max,
+        }
+    }
+}
+
+impl Function for Random {
+    fn get(&self) -> String {
+        let mut rng = rand::thread_rng();
+        let value = rng.gen_range(self.min..=self.max);
         value.to_string()
     }
 }

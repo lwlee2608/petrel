@@ -102,6 +102,7 @@ impl<'a> Message<'a> {
     }
 }
 
+// TODO better error handling
 pub fn string_to_avp_value(
     str: &str,
     avp_type: diameter::avp::AvpType,
@@ -169,6 +170,7 @@ impl<'a> Value<'a> {
         }
     }
 
+    // TODO Rename
     fn compute(&self) -> String {
         let mut result: String = self.source.clone();
         for v in &self.variables {
