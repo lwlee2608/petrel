@@ -1,12 +1,13 @@
 local option = {
     call_timeout_ms = 1000,
-    duration_s = 3,
-    call_rate = 1,
-    -- call_rate = 150000,
-    log_requests = true,
-    log_responses = true,
-    -- log_requests = false,
-    -- log_responses = false,
+    -- duration_s = 5,
+    -- call_rate = 1,
+    -- log_requests = true,
+    -- log_responses = true,
+    duration_s = 15,
+    call_rate = 150000,
+    log_requests = false,
+    log_responses = false,
     globals = {
         variables = {
             {
