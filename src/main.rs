@@ -6,8 +6,9 @@ use crate::global::Global;
 use crate::options::Options;
 use chrono::Local;
 use diameter::transport::eventloop::DiameterClient;
+use std::cell::RefCell;
 use std::io::Write;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::rc::Rc;
 use std::thread;
 use std::time::Instant;
 use tokio::sync::mpsc;
@@ -15,7 +16,7 @@ use tokio::task;
 use tokio::task::LocalSet;
 use tokio::time::{self, sleep, Duration};
 
-static COUNTER: AtomicU32 = AtomicU32::new(0);
+// static COUNTER: AtomicU32 = AtomicU32::new(0);
 
 #[tokio::main]
 // #[tokio::main(flavor = "current_thread")]
@@ -101,7 +102,9 @@ async fn run(options: Options) -> Report {
             // Start time
             let start = Instant::now();
 
-            // let mut tasks = Vec::new();
+            // We don't need atomic operation since we are running inside LocalSet
+            let counter: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
+
             for _ in 0..total_iterations / batch_size {
                 interval.tick().await;
 
@@ -111,6 +114,8 @@ async fn run(options: Options) -> Report {
                     if options.log_requests {
                         log::info!("Request: {}", ccr);
                     }
+
+                    let counter = Rc::clone(&counter);
                     let mut request = client.request(ccr).await.unwrap();
                     let _ = task::spawn_local(async move {
                         let _ = request.send().await.expect("Failed to create request");
@@ -118,14 +123,13 @@ async fn run(options: Options) -> Report {
                         if options.log_responses {
                             log::info!("Response: {}", _cca);
                         }
-                        COUNTER.fetch_add(1, Ordering::SeqCst);
+                        *counter.borrow_mut() += 1;
                     });
                 }
             }
-            // local.await;
             log::info!("Waiting for all requests to finish");
 
-            while COUNTER.load(Ordering::Relaxed) < total_iterations {
+            while *counter.borrow() < total_iterations {
                 sleep(Duration::from_millis(50)).await;
             }
 
