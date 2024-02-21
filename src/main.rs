@@ -10,6 +10,7 @@ use std::io::Write;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
 use std::time::Instant;
+use tokio::sync::mpsc;
 use tokio::task;
 use tokio::task::LocalSet;
 use tokio::time::{self, sleep, Duration};
@@ -39,31 +40,58 @@ async fn main() {
         .filter(None, log::LevelFilter::Info)
         .init();
 
-    run().await;
+    let (tx, mut rx) = mpsc::channel(8);
+
+    for _ in 0..8 {
+        let tx = tx.clone();
+        tokio::task::spawn_blocking(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+
+            rt.block_on(async move {
+                let report = run().await;
+                tx.send(report).await.unwrap();
+            });
+        });
+    }
+
+    drop(tx);
+
+    let mut total_tps = 0f64;
+    while let Some(report) = rx.recv().await {
+        total_tps += report.tps;
+    }
+    log::info!("Total TPS: {}", total_tps);
 }
 
-async fn run() {
+pub struct Report {
+    pub tps: f64,
+}
+
+async fn run() -> Report {
     let local = LocalSet::new();
+    let options = options::load("./options.lua");
+    let rps = options.call_rate;
+    let (batch_size, interval, total_iterations) = calc_batch_interval(&options);
+
+    log::debug!("Options is {:?}", options);
+    log::info!(
+        "Sending {} requests per second with batch size {}, interval {}",
+        rps,
+        batch_size,
+        interval.as_secs_f64()
+    );
+    log::info!("Total iterations: {}", total_iterations);
+
+    let mut interval = time::interval(interval);
+
+    let global = Global::new(&options.globals);
+    let mut scenario = scenario::Scenario::new(&options, &global).unwrap();
+
     local
         .run_until(async move {
-            let options = options::load("./options.lua");
-            let rps = options.call_rate;
-            let (batch_size, interval, total_iterations) = calc_batch_interval(&options);
-
-            log::debug!("Options is {:?}", options);
-            log::info!(
-                "Sending {} requests per second with batch size {}, interval {}",
-                rps,
-                batch_size,
-                interval.as_secs_f64()
-            );
-            log::info!("Total iterations: {}", total_iterations);
-
-            let mut interval = time::interval(interval);
-
-            let global = Global::new(&options.globals);
-            let mut scenario = scenario::Scenario::new(&options, &global).unwrap();
-
             // Connect to server
             let mut client = DiameterClient::new("localhost:3868");
             let _ = client.connect().await;
@@ -82,7 +110,6 @@ async fn run() {
                         log::info!("Request: {}", ccr);
                     }
                     let mut request = client.request(ccr).await.unwrap();
-                    // let _ = tokio::spawn(async move {
                     let _ = task::spawn_local(async move {
                         let _ = request.send().await.expect("Failed to create request");
                         let _cca = request.response().await.expect("Failed to get response");
@@ -101,14 +128,17 @@ async fn run() {
             }
 
             let elapsed = start.elapsed();
+            let tps = total_iterations as f64 / (elapsed.as_micros() as f64 / 1_000_000.0);
             log::info!(
                 "Elapsed: {}.{}s , {} requests per second",
                 elapsed.as_secs(),
                 elapsed.subsec_micros(),
-                total_iterations as f64 / (elapsed.as_micros() as f64 / 1_000_000.0)
+                tps,
             );
+
+            Report { tps }
         })
-        .await;
+        .await
 }
 
 fn calc_batch_interval(options: &Options) -> (u32, Duration, u32) {
