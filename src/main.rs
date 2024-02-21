@@ -42,8 +42,11 @@ async fn main() {
 
     let (tx, mut rx) = mpsc::channel(8);
 
-    for _ in 0..8 {
+    let options = options::load("./options.lua");
+
+    for _ in 0..options.parallel {
         let tx = tx.clone();
+        let options = options.clone();
         tokio::task::spawn_blocking(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -51,7 +54,7 @@ async fn main() {
                 .unwrap();
 
             rt.block_on(async move {
-                let report = run().await;
+                let report = run(options).await;
                 tx.send(report).await.unwrap();
             });
         });
@@ -70,9 +73,8 @@ pub struct Report {
     pub tps: f64,
 }
 
-async fn run() -> Report {
+async fn run(options: Options) -> Report {
     let local = LocalSet::new();
-    let options = options::load("./options.lua");
     let rps = options.call_rate;
     let (batch_size, interval, total_iterations) = calc_batch_interval(&options);
 
@@ -159,6 +161,7 @@ mod tests {
     #[test]
     fn test_load_calculate() {
         let options = Options {
+            parallel: 1,
             call_rate: 500,
             call_timeout_ms: 2000,
             duration_s: 120,

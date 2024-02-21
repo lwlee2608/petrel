@@ -1,11 +1,12 @@
 local option = {
+    parallel = 4,
     call_timeout_ms = 1000,
     -- duration_s = 5,
     -- call_rate = 1,
     -- log_requests = true,
     -- log_responses = true,
     duration_s = 15,
-    call_rate = 150000,
+    call_rate = 180000,
     log_requests = false,
     log_responses = false,
     globals = {

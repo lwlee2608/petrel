@@ -4,8 +4,9 @@ use mlua::prelude::LuaSerdeExt;
 use mlua::UserData;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Options {
+    pub parallel: u32,
     pub call_rate: u32,
     pub call_timeout_ms: u32,
     pub duration_s: u32,
@@ -15,33 +16,33 @@ pub struct Options {
     pub scenarios: Vec<Scenario>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Scenario {
     pub name: String,
     pub message: Message,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Message {
     pub command: String,
     pub application: String,
     pub avps: Vec<Avp>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Avp {
     pub name: String,
     pub value: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Global {
     pub variables: Vec<HashMap<String, Variable>>,
 }
 
 // TODO Different function should have different fields
 // eg. random_number should not have 'step' field
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Variable {
     pub func: Function,
     pub min: i32,
@@ -49,7 +50,7 @@ pub struct Variable {
     pub step: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum Function {
     IncrementalCounter,
@@ -80,6 +81,7 @@ mod tests {
         let value = lua
             .load(
                 r#"{ 
+                    parallel = 4,
                     call_rate = 20000, 
                     call_timeout_ms = 1000, 
                     duration_s = 60, 
@@ -115,6 +117,7 @@ mod tests {
 
         let options: Options = lua.from_value(value)?;
 
+        assert_eq!(options.parallel, 4);
         assert_eq!(options.call_rate, 20000);
         assert_eq!(options.call_timeout_ms, 1000);
         assert_eq!(options.duration_s, 60);
