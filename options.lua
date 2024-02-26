@@ -6,9 +6,10 @@ local option = {
     -- log_requests = true,
     -- log_responses = true,
     duration_s = 15,
-    call_rate = 150000,
+    call_rate = 100000,
     log_requests = false,
     log_responses = false,
+    protocol = "Diameter",
     globals = {
         variables = {
             {
@@ -33,6 +34,7 @@ local option = {
     scenarios = {
         {
             name = "CER",
+            type = "Once",
             message = {
                 command = "Capability-Exchange", application = "Common", flags = 0,
                 avps = {
@@ -44,6 +46,7 @@ local option = {
         },
         {
             name = "CCR",
+            type = "Repeating",
             message = {
                 command = "Credit-Control", application = "Charging Control", flags = 0,
                 avps = {

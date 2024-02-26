@@ -96,13 +96,9 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             }
 
             let elapsed = start.elapsed();
+            let elapsed_s = elapsed.as_secs() as f64 + elapsed.subsec_millis() as f64 / 1000.0;
             let tps = param.total_iterations as f64 / (elapsed.as_micros() as f64 / 1_000_000.0);
-            log::info!(
-                "Elapsed: {}.{}s , {} requests per second",
-                elapsed.as_secs(),
-                elapsed.subsec_micros(),
-                tps,
-            );
+            log::info!("Elapsed: {:.3}s , {} requests per second", elapsed_s, tps,);
 
             RunReport { tps, elapsed }
         })
@@ -123,6 +119,7 @@ mod tests {
             duration_s: 120,
             log_requests: false,
             log_responses: false,
+            protocol: options::Protocol::Diameter,
             globals: options::Global { variables: vec![] },
             scenarios: vec![],
         };

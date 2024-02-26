@@ -13,13 +13,28 @@ pub struct Options {
     pub log_requests: bool,
     pub log_responses: bool,
     pub globals: Global,
+    pub protocol: Protocol,
     pub scenarios: Vec<Scenario>,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum Protocol {
+    Diameter,
+    HTTP2,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Scenario {
     pub name: String,
+    #[serde(rename = "type")]
+    pub scenario_type: ScenarioType,
     pub message: Message,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum ScenarioType {
+    Once,
+    Repeating,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -87,6 +102,7 @@ mod tests {
                     duration_s = 60, 
                     log_requests = false,
                     log_responses = false,
+                    protocol = "Diameter",
                     globals = {
                         variables = {
                             {
@@ -102,6 +118,7 @@ mod tests {
                     scenarios = {
                         {
                             name = "CER",
+                            type = "Once",
                             message = {
                                 command = "Capability-Exchange", application = "Common", flags = 0,
                                 avps = {
@@ -140,6 +157,7 @@ mod tests {
             options.scenarios[0],
             Scenario {
                 name: "CER".into(),
+                scenario_type: ScenarioType::Once,
                 message: Message {
                     command: "Capability-Exchange".into(),
                     application: "Common".into(),
