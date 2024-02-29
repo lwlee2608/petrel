@@ -1,14 +1,14 @@
 local option = {
-    parallel = 4,
+    parallel = 1,
     call_timeout_ms = 1000,
-    -- duration_s = 5,
-    -- call_rate = 1,
-    -- log_requests = true,
-    -- log_responses = true,
-    duration_s = 15,
-    call_rate = 100000,
-    log_requests = false,
-    log_responses = false,
+    duration_s = 5,
+    call_rate = 1,
+    log_requests = true,
+    log_responses = true,
+    -- duration_s = 15,
+    -- call_rate = 100000,
+    -- log_requests = false,
+    -- log_responses = false,
     protocol = "Diameter",
     globals = {
         variables = {
@@ -36,11 +36,12 @@ local option = {
             name = "CER",
             type = "Once",
             message = {
-                command = "Capability-Exchange", application = "Common", flags = 0,
+                command = "Capabilities-Exchange", application = "Base", flags = 0,
                 avps = {
                     { name = "Origin-Host", value = "host.example.com" },
                     { name = "Origin-Realm", value = "realm.example.com" },
                     { name = "CC-Correlation-Id", value = "ses;2345888" },
+                    { name = "Auth-Application-Id", value = "4" },
                 },
             },
         },

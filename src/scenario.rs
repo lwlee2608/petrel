@@ -1,7 +1,6 @@
 use crate::global;
 use crate::global::Global;
 use crate::options;
-use crate::options::Options;
 use diameter::avp::Address;
 use diameter::avp::AvpType;
 use diameter::avp::AvpValue;
@@ -23,9 +22,9 @@ pub struct Scenario<'a> {
 }
 
 impl<'a> Scenario<'a> {
-    pub fn new(options: &Options, global: &'a Global) -> Result<Self, Box<dyn Error>> {
+    pub fn new(options: &options::Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
         return Ok(Scenario {
-            message: Message::new(&options.scenarios.get(1).unwrap(), global)?,
+            message: Message::new(options, global)?,
         });
     }
 

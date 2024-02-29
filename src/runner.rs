@@ -41,18 +41,13 @@ pub struct RunReport {
 }
 
 pub async fn run(options: Options, param: RunParameter) -> RunReport {
-    log::info!(
-        "Sending total request {} with {} TPS, batch size {}, interval {}",
-        param.total_iterations,
-        param.target_tps,
-        param.batch_size,
-        param.interval.as_secs_f64()
-    );
-
-    let mut interval = time::interval(param.interval);
-
     let global = Global::new(&options.globals);
-    let mut scenario = scenario::Scenario::new(&options, &global).unwrap();
+
+    let mut once_scenario =
+        scenario::Scenario::new(options.scenarios.get(0).unwrap(), &global).unwrap();
+
+    let mut repeating_scenario =
+        scenario::Scenario::new(options.scenarios.get(1).unwrap(), &global).unwrap();
 
     let local = LocalSet::new();
     local
@@ -61,7 +56,26 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             let mut client = DiameterClient::new("localhost:3868");
             let _ = client.connect().await;
 
-            // Start time
+            // Init, Once scenario
+            let cer = once_scenario.next_message().unwrap();
+            if options.log_requests {
+                log::info!("CER: {}", cer);
+            }
+            let cea = client.send_message(cer).await.unwrap();
+            if options.log_responses {
+                log::info!("CEA: {}", cea);
+            }
+
+            // Start Repeating Scenario
+            log::info!(
+                "Sending total request {} with {} TPS, batch size {}, interval {}",
+                param.total_iterations,
+                param.target_tps,
+                param.batch_size,
+                param.interval.as_secs_f64()
+            );
+            let mut interval = time::interval(param.interval);
+
             let start = Instant::now();
 
             // We don't need atomic operation since we are running inside LocalSet
@@ -72,7 +86,7 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
 
                 for _ in 0..param.batch_size {
                     // let ccr = ccr(client.get_next_seq_num());
-                    let ccr = scenario.next_message().unwrap();
+                    let ccr = repeating_scenario.next_message().unwrap();
                     if options.log_requests {
                         log::info!("Request: {}", ccr);
                     }
@@ -89,8 +103,8 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
                     });
                 }
             }
-            log::info!("Waiting for all requests to finish");
 
+            log::info!("Waiting for all requests to finish");
             while *counter.borrow() < param.total_iterations {
                 sleep(Duration::from_millis(50)).await;
             }
