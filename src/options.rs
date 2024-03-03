@@ -33,7 +33,7 @@ pub struct Scenario {
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum ScenarioType {
-    Once,
+    Init,
     Repeating,
 }
 
@@ -118,7 +118,7 @@ mod tests {
                     scenarios = {
                         {
                             name = "CER",
-                            type = "Once",
+                            type = "Init",
                             message = {
                                 command = "Capability-Exchange", application = "Common", flags = 0,
                                 avps = {
@@ -157,7 +157,7 @@ mod tests {
             options.scenarios[0],
             Scenario {
                 name: "CER".into(),
-                scenario_type: ScenarioType::Once,
+                scenario_type: ScenarioType::Init,
                 message: Message {
                     command: "Capability-Exchange".into(),
                     application: "Common".into(),

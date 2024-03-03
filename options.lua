@@ -34,14 +34,17 @@ local option = {
     scenarios = {
         {
             name = "CER",
-            type = "Once",
+            type = "Init",
             message = {
                 command = "Capabilities-Exchange", application = "Base", flags = 0,
                 avps = {
                     { name = "Origin-Host", value = "host.example.com" },
                     { name = "Origin-Realm", value = "realm.example.com" },
+                    { name = "Destination-Realm", value = "dest.realm.org" },
+                    -- { name = "Server-Name", value = "petrel" },
                     { name = "CC-Correlation-Id", value = "ses;2345888" },
                     { name = "Auth-Application-Id", value = "4" },
+                    { name = "Session-Id", value = "ses;${COUNTER}_${RANDOM}" },
                 },
             },
         },

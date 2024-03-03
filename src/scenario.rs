@@ -64,7 +64,7 @@ impl<'a> Message<'a> {
         for a in &scenario.message.avps {
             let avp_definition = dictionary::DEFAULT_DICT
                 .get_avp_by_name(&a.name)
-                .ok_or("AVP not found in dictionary")?;
+                .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
             let value = Value::new(&a.value, avp_definition.avp_type, global);
 

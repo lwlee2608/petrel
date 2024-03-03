@@ -43,7 +43,7 @@ pub struct RunReport {
 pub async fn run(options: Options, param: RunParameter) -> RunReport {
     let global = Global::new(&options.globals);
 
-    let mut once_scenario =
+    let mut init_scenario =
         scenario::Scenario::new(options.scenarios.get(0).unwrap(), &global).unwrap();
 
     let mut repeating_scenario =
@@ -56,8 +56,8 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             let mut client = DiameterClient::new("localhost:3868");
             let _ = client.connect().await;
 
-            // Init, Once scenario
-            let cer = once_scenario.next_message().unwrap();
+            // Init, Init scenario
+            let cer = init_scenario.next_message().unwrap();
             if options.log_requests {
                 log::info!("CER: {}", cer);
             }
