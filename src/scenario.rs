@@ -43,14 +43,16 @@ pub struct Message<'a> {
 
 impl<'a> Message<'a> {
     pub fn new(scenario: &options::Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
-        let command_code = dictionary::DEFAULT_DICT
+        let dictionary = dictionary::DEFAULT_DICT.read().unwrap();
+
+        let command_code = dictionary
             .get_command_code_by_name(&scenario.message.command)
             .ok_or(format!(
                 "Unknown Command-Code '{}'",
                 scenario.message.command
             ))?;
 
-        let application_id = dictionary::DEFAULT_DICT
+        let application_id = dictionary
             .get_application_id_by_name(&scenario.message.application)
             .ok_or(format!(
                 "Unknown Application-Id '{}'",
@@ -62,7 +64,7 @@ impl<'a> Message<'a> {
         let mut avps = vec![];
 
         for a in &scenario.message.avps {
-            let avp_definition = dictionary::DEFAULT_DICT
+            let avp_definition = dictionary
                 .get_avp_by_name(&a.name)
                 .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
