@@ -5,6 +5,8 @@ use diameter::avp::Address;
 use diameter::avp::AvpType;
 use diameter::avp::AvpValue;
 use diameter::avp::Enumerated;
+use diameter::avp::IPv4;
+use diameter::avp::IPv6;
 use diameter::avp::Identity;
 use diameter::avp::OctetString;
 use diameter::avp::UTF8String;
@@ -15,6 +17,9 @@ use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
 use regex::Regex;
 use std::error::Error;
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
 use std::result::Result;
 
 pub struct Scenario<'a> {
@@ -119,9 +124,21 @@ pub fn string_to_avp_value(
     avp_type: diameter::avp::AvpType,
 ) -> Result<AvpValue, Box<dyn Error>> {
     let value = match avp_type {
-        AvpType::Address => Address::new(str.as_bytes().to_vec()).into(),
-        AvpType::AddressIPv4 => Address::new(str.as_bytes().to_vec()).into(),
-        AvpType::AddressIPv6 => Address::new(str.as_bytes().to_vec()).into(),
+        AvpType::Address => {
+            let addr: IpAddr = str.parse().expect("Invalid IP address");
+            match addr {
+                IpAddr::V4(addr) => Address::from_ipv4(addr).into(),
+                IpAddr::V6(addr) => Address::from_ipv6(addr).into(),
+            }
+        }
+        AvpType::AddressIPv4 => {
+            let addr: Ipv4Addr = str.parse().expect("Invalid IPv4 address");
+            IPv4::new(addr).into()
+        }
+        AvpType::AddressIPv6 => {
+            let addr: Ipv6Addr = str.parse().expect("Invalid IPv6 address");
+            IPv6::new(addr).into()
+        }
         AvpType::Identity => Identity::new(&str).into(),
         AvpType::DiameterURI => UTF8String::new(&str).into(),
         AvpType::Enumerated => Enumerated::new(str.parse().unwrap()).into(),
