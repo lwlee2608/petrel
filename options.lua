@@ -1,7 +1,7 @@
 local option = {
     parallel = 1,
     call_timeout_ms = 1000,
-    duration_s = 5,
+    duration_s = 2,
     call_rate = 1,
     log_requests = true,
     log_responses = true,
@@ -59,7 +59,12 @@ local option = {
                     { name = "Session-Id", value = "ses;${COUNTER}_${RANDOM}" },
                     { name = "CC-Request-Type", value = "1" },
                     { name = "CC-Request-Number", value = "100" },
-                    -- { name = "Subscription-Id", value = "group" },
+                    -- { name = "Subscription-Id",
+                    --     value = {
+                    --         { name = "Subscription-Id-Type", value = "1" },
+                    --         { name = "Subscription-Id-Data", value = "subs-data" },
+                    --     },
+                    -- },
                 },
             },
         },

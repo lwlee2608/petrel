@@ -172,7 +172,16 @@ struct Value<'a> {
 }
 
 impl<'a> Value<'a> {
-    pub fn new(source: &str, avp_type: diameter::avp::AvpType, global: &'a Global) -> Self {
+    pub fn new(
+        source: &options::Value,
+        avp_type: diameter::avp::AvpType,
+        global: &'a Global,
+    ) -> Self {
+        let source = match source {
+            options::Value::String(s) => s,
+            options::Value::Avp(_v) => todo!("group avp not implemented yet"),
+        };
+
         // Scan for variables
         let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
         let mut variables = vec![];
@@ -237,7 +246,11 @@ mod tests {
             .collect()],
         });
 
-        let variable = Value::new("example.origin.host", AvpType::UTF8String, &global);
+        let variable = Value::new(
+            &options::Value::String("example.origin.host".into()),
+            AvpType::UTF8String,
+            &global,
+        );
 
         assert_eq!("example.origin.host", variable.compute());
         assert_eq!("example.origin.host", variable.compute());
@@ -259,7 +272,11 @@ mod tests {
             .collect()],
         });
 
-        let variable = Value::new("ses;${COUNTER}", AvpType::UTF8String, &global);
+        let variable = Value::new(
+            &options::Value::String("ses;${COUNTER}".into()),
+            AvpType::UTF8String,
+            &global,
+        );
 
         assert_eq!("ses;1", variable.compute());
         assert_eq!("ses;4", variable.compute());
@@ -293,7 +310,11 @@ mod tests {
             ],
         });
 
-        let variable = Value::new("ses;${COUNTER1}_${COUNTER2}", AvpType::UTF8String, &global);
+        let variable = Value::new(
+            &options::Value::String("ses;${COUNTER1}_${COUNTER2}".into()),
+            AvpType::UTF8String,
+            &global,
+        );
 
         assert_eq!("ses;0_1", variable.compute());
         assert_eq!("ses;1_4", variable.compute());

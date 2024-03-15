@@ -47,7 +47,14 @@ pub struct Message {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Avp {
     pub name: String,
-    pub value: String,
+    pub value: Value,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[serde(untagged)]
+pub enum Value {
+    String(String),
+    Avp(Vec<Avp>),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -164,11 +171,11 @@ mod tests {
                     avps: vec![
                         Avp {
                             name: "Origin-Host".into(),
-                            value: "host.example.com".into(),
+                            value: Value::String("host.example.com".into()),
                         },
                         Avp {
                             name: "Origin-Realm".into(),
-                            value: "realm.example.com".into(),
+                            value: Value::String("realm.example.com".into()),
                         },
                     ],
                 },
