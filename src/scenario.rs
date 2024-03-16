@@ -74,15 +74,18 @@ impl<'a> Message<'a> {
                 .get_avp_by_name(&a.name)
                 .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
-            let value = Value::new(&a.value, avp_definition.avp_type, global);
-
+            let value = Value::new(&a.value, avp_definition.avp_type, global)?;
+            let avp_flags = if avp_definition.m_flag {
+                diameter::avp::flags::M
+            } else {
+                0
+            };
             let avp = Avp {
                 code: avp_definition.code,
-                vendor_id: None, // TODO remove hardcode, avp_definition.vendor_id,
-                flags: 0,        // TODO remove hardcode, avp_definition.flags,
+                vendor_id: avp_definition.vendor_id,
+                flags: avp_flags,
                 value,
             };
-
             avps.push(avp);
         }
 
@@ -119,7 +122,6 @@ impl<'a> Message<'a> {
     }
 }
 
-// TODO better error handling
 pub fn string_to_avp_value(
     str: &str,
     avp_type: diameter::avp::AvpType,
@@ -145,7 +147,6 @@ pub fn string_to_avp_value(
         AvpType::Enumerated => Enumerated::new(str.parse().unwrap()).into(),
         AvpType::Float32 => Unsigned32::new(str.parse().unwrap()).into(),
         AvpType::Float64 => Unsigned64::new(str.parse().unwrap()).into(),
-        AvpType::Grouped => todo!(),
         AvpType::Integer32 => Unsigned32::new(str.parse().unwrap()).into(),
         AvpType::Integer64 => Unsigned64::new(str.parse().unwrap()).into(),
         AvpType::OctetString => OctetString::new(str.as_bytes().to_vec()).into(),
@@ -153,7 +154,8 @@ pub fn string_to_avp_value(
         AvpType::Unsigned64 => Unsigned64::new(str.parse().unwrap()).into(),
         AvpType::UTF8String => UTF8String::new(&str).into(),
         AvpType::Time => Unsigned32::new(str.parse().unwrap()).into(),
-        AvpType::Unknown => return Err("Unknown AVP type".into()),
+        AvpType::Grouped => return Err("unexpected Grouped AVP type".into()),
+        AvpType::Unknown => return Err("unexpected Unknown AVP type".into()),
     };
     Ok(value)
 }
@@ -177,7 +179,7 @@ impl<'a> Value<'a> {
         source: &options::Value,
         avp_type: diameter::avp::AvpType,
         global: &'a Global,
-    ) -> Self {
+    ) -> Result<Self, Box<dyn Error>> {
         match source {
             options::Value::String(source) => {
                 // Scan for variables
@@ -197,12 +199,12 @@ impl<'a> Value<'a> {
                     None
                 };
 
-                Value {
+                Ok(Value {
                     source: source.into(),
                     avp_type,
                     variables,
                     constant,
-                }
+                })
             }
             options::Value::Avp(source) => {
                 let variables = vec![];
@@ -215,23 +217,22 @@ impl<'a> Value<'a> {
 
                     let avp_definition = dictionary
                         .get_avp_by_name(&a.name)
-                        .expect("AVP not found in dictionary");
-                    // .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
+                        .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
-                    let value = Value::new(&a.value, avp_definition.avp_type, global);
-                    let value = value.get_value().expect("Invalid value");
+                    let value = Value::new(&a.value, avp_definition.avp_type, global)?;
+                    let value = value.get_value()?;
                     let avp = diameter::avp::Avp::new(avp_definition.code, None, 0, value);
 
                     avps.push(avp);
                 }
                 let value: AvpValue = Grouped::new(avps).into();
                 let constant = Some(value);
-                Value {
+                Ok(Value {
                     source: "TODO".into(),
                     avp_type,
                     variables,
                     constant,
-                }
+                })
             }
         }
     }
@@ -279,7 +280,8 @@ mod tests {
             &options::Value::String("example.origin.host".into()),
             AvpType::UTF8String,
             &global,
-        );
+        )
+        .unwrap();
 
         assert_eq!("example.origin.host", variable.compute());
         assert_eq!("example.origin.host", variable.compute());
@@ -305,7 +307,8 @@ mod tests {
             &options::Value::String("ses;${COUNTER}".into()),
             AvpType::UTF8String,
             &global,
-        );
+        )
+        .unwrap();
 
         assert_eq!("ses;1", variable.compute());
         assert_eq!("ses;4", variable.compute());
@@ -343,7 +346,8 @@ mod tests {
             &options::Value::String("ses;${COUNTER1}_${COUNTER2}".into()),
             AvpType::UTF8String,
             &global,
-        );
+        )
+        .unwrap();
 
         assert_eq!("ses;0_1", variable.compute());
         assert_eq!("ses;1_4", variable.compute());
