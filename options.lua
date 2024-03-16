@@ -59,12 +59,12 @@ local option = {
                     { name = "Session-Id", value = "ses;${COUNTER}_${RANDOM}" },
                     { name = "CC-Request-Type", value = "1" },
                     { name = "CC-Request-Number", value = "100" },
-                    -- { name = "Subscription-Id",
-                    --     value = {
-                    --         { name = "Subscription-Id-Type", value = "1" },
-                    --         { name = "Subscription-Id-Data", value = "subs-data" },
-                    --     },
-                    -- },
+                    { name = "Subscription-Id",
+                        value = {
+                            { name = "Subscription-Id-Type", value = "1" },
+                            { name = "Subscription-Id-Data", value = "subs-data" },
+                        },
+                    },
                 },
             },
         },

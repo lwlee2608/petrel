@@ -5,6 +5,7 @@ use diameter::avp::Address;
 use diameter::avp::AvpType;
 use diameter::avp::AvpValue;
 use diameter::avp::Enumerated;
+use diameter::avp::Grouped;
 use diameter::avp::IPv4;
 use diameter::avp::IPv6;
 use diameter::avp::Identity;
@@ -177,33 +178,61 @@ impl<'a> Value<'a> {
         avp_type: diameter::avp::AvpType,
         global: &'a Global,
     ) -> Self {
-        let source = match source {
-            options::Value::String(s) => s,
-            options::Value::Avp(_v) => todo!("group avp not implemented yet"),
-        };
+        match source {
+            options::Value::String(source) => {
+                // Scan for variables
+                let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
+                let mut variables = vec![];
+                for caps in variable_pattern.captures_iter(source) {
+                    let cap = caps[1].to_string();
+                    let var = global.get_variable(&cap).unwrap();
+                    variables.push(var);
+                }
 
-        // Scan for variables
-        let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
-        let mut variables = vec![];
-        for caps in variable_pattern.captures_iter(source) {
-            let cap = caps[1].to_string();
-            let var = global.get_variable(&cap).unwrap();
-            variables.push(var);
-        }
+                // If no variable found, make this a constant
+                let constant = if variables.is_empty() {
+                    let value = string_to_avp_value(source, avp_type).unwrap();
+                    Some(value)
+                } else {
+                    None
+                };
 
-        // If no variable found, make this a constant
-        let constant = if variables.is_empty() {
-            let value = string_to_avp_value(source, avp_type).unwrap();
-            Some(value)
-        } else {
-            None
-        };
+                Value {
+                    source: source.into(),
+                    avp_type,
+                    variables,
+                    constant,
+                }
+            }
+            options::Value::Avp(source) => {
+                let variables = vec![];
+                if avp_type != AvpType::Grouped {
+                    panic!("Invalid AVP type for AVP value")
+                }
+                let mut avps = vec![];
+                for a in source {
+                    let dictionary = dictionary::DEFAULT_DICT.read().unwrap();
 
-        Value {
-            source: source.into(),
-            avp_type,
-            variables,
-            constant,
+                    let avp_definition = dictionary
+                        .get_avp_by_name(&a.name)
+                        .expect("AVP not found in dictionary");
+                    // .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
+
+                    let value = Value::new(&a.value, avp_definition.avp_type, global);
+                    let value = value.get_value().expect("Invalid value");
+                    let avp = diameter::avp::Avp::new(avp_definition.code, None, 0, value);
+
+                    avps.push(avp);
+                }
+                let value: AvpValue = Grouped::new(avps).into();
+                let constant = Some(value);
+                Value {
+                    source: "TODO".into(),
+                    avp_type,
+                    variables,
+                    constant,
+                }
+            }
         }
     }
 
