@@ -1,3 +1,4 @@
+mod dictionary;
 mod global;
 mod options;
 mod runner;
@@ -30,9 +31,14 @@ async fn main() {
         .filter(None, log::LevelFilter::Info)
         .init();
 
+    // Load Config file
     let options = options::load("./options.lua");
     log::debug!("Options is {:?}", options);
 
+    // Dictionary
+    dictionary::load(options.dictionaries.clone()).unwrap();
+
+    // Runners
     let (tx, mut rx) = mpsc::channel(8);
     for _ in 0..options.parallel {
         let tx = tx.clone();

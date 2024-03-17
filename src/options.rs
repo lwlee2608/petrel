@@ -14,6 +14,7 @@ pub struct Options {
     pub log_responses: bool,
     pub globals: Global,
     pub protocol: Protocol,
+    pub dictionaries: Vec<String>,
     pub scenarios: Vec<Scenario>,
 }
 
@@ -122,6 +123,9 @@ mod tests {
                             },
                         },
                     },
+                    dictionaries = {
+                        "diameter.xml",
+                    },
                     scenarios = {
                         {
                             name = "CER",
@@ -159,6 +163,9 @@ mod tests {
         )]
         .into();
         assert_eq!(options.globals.variables[0], expected_variables);
+        assert_eq!(options.protocol, Protocol::Diameter);
+        assert_eq!(options.dictionaries.len(), 1);
+        assert_eq!(options.dictionaries[0], "diameter.xml");
         assert_eq!(options.scenarios.len(), 1);
         assert_eq!(
             options.scenarios[0],

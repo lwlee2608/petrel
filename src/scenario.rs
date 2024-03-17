@@ -209,7 +209,7 @@ impl<'a> Value<'a> {
             options::Value::Avp(source) => {
                 let variables = vec![];
                 if avp_type != AvpType::Grouped {
-                    panic!("Invalid AVP type for AVP value")
+                    return Err("Invalid AVP type for AVP value".into());
                 }
                 let mut avps = vec![];
                 for a in source {

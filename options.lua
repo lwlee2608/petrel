@@ -30,7 +30,10 @@ local option = {
             },
         },
     },
-    -- https://gull.sourceforge.net/doc/diameter.html
+    dictionaries = {
+        "3gpp-ro-rf.xml",
+    },
+    -- Reference: https://gull.sourceforge.net/doc/diameter.html
     scenarios = {
         {
             name = "CER",
@@ -65,6 +68,8 @@ local option = {
                             { name = "Subscription-Id-Data", value = "subs-data" },
                         },
                     },
+                    { name = "Called-Station-Id", value = "10999" },
+                    { name = "SGSN-Address", value = "127.0.0.1" },
                 },
             },
         },

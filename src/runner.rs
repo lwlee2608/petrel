@@ -135,6 +135,7 @@ mod tests {
             log_responses: false,
             protocol: options::Protocol::Diameter,
             globals: options::Global { variables: vec![] },
+            dictionaries: vec![],
             scenarios: vec![],
         };
 
