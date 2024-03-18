@@ -31,7 +31,7 @@ local option = {
         },
     },
     dictionaries = {
-        "3gpp-ro-rf.xml",
+        "https://raw.githubusercontent.com/lwlee2608/diameter-rs/master/dict/3gpp-ro-rf.xml",
     },
     -- Reference: https://gull.sourceforge.net/doc/diameter.html
     scenarios = {
