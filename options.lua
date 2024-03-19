@@ -51,7 +51,7 @@ local option = {
             },
         },
         {
-            name = "Ro-CCR",
+            name = "Ro-CCR-i",
             type = "Repeating",
             message = {
                 command = "Credit-Control", application = "Charging Control", flags = 0,
@@ -65,7 +65,7 @@ local option = {
                     { name = "Service-Context-Id", value = "1003" },
                     { name = "CC-Request-Type", value = "1" },
                     { name = "CC-Request-Number", value = "1" },
-                    -- { name = "Event-Timestamp", value = "2020-01-01T00:00:00Z" },
+                    { name = "Event-Timestamp", value = "2020-01-01T00:00:00Z" },
                     { name = "Subscription-Id",
                         value = {
                             { name = "Subscription-Id-Type", value = "1" },
@@ -77,7 +77,7 @@ local option = {
                             { name = "PS-Information",
                                 value = {
                                     { name = "Called-Station-Id", value = "10999" },
-                                    -- { name = "3GPP-MS-Timezone", value = "2020-01-01" },
+                                    { name = "TGPP-MS-TimeZone", value = "0" },
                                 },
                             }
                         },

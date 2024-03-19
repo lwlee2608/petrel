@@ -1,6 +1,8 @@
 use crate::global;
 use crate::global::Global;
 use crate::options;
+use chrono::DateTime;
+use chrono::Utc;
 use diameter::avp::Address;
 use diameter::avp::AvpType;
 use diameter::avp::AvpValue;
@@ -10,6 +12,7 @@ use diameter::avp::IPv4;
 use diameter::avp::IPv6;
 use diameter::avp::Identity;
 use diameter::avp::OctetString;
+use diameter::avp::Time;
 use diameter::avp::UTF8String;
 use diameter::avp::Unsigned32;
 use diameter::avp::Unsigned64;
@@ -151,11 +154,17 @@ pub fn string_to_avp_value(
         AvpType::Float64 => Unsigned64::new(str.parse()?).into(),
         AvpType::Integer32 => Unsigned32::new(str.parse()?).into(),
         AvpType::Integer64 => Unsigned64::new(str.parse()?).into(),
-        AvpType::OctetString => OctetString::new(str.as_bytes().to_vec()).into(),
+        AvpType::OctetString => {
+            // TODO
+            OctetString::new(str.as_bytes().to_vec()).into()
+        }
         AvpType::Unsigned32 => Unsigned32::new(str.parse()?).into(),
         AvpType::Unsigned64 => Unsigned64::new(str.parse()?).into(),
         AvpType::UTF8String => UTF8String::new(&str).into(),
-        AvpType::Time => Unsigned32::new(str.parse()?).into(),
+        AvpType::Time => {
+            let time = str.parse::<DateTime<Utc>>()?;
+            Time::new(time).into()
+        }
         AvpType::Grouped => return Err("Invalid Grouped AVP value".into()),
         AvpType::Unknown => return Err("Unknown AVP type".into()),
     };
