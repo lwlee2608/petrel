@@ -223,7 +223,12 @@ impl<'a> Value<'a> {
 
                     let value = Value::new(&a.value, avp_definition.avp_type, global)?;
                     let value = value.get_value()?;
-                    let avp = diameter::avp::Avp::new(avp_definition.code, None, 0, value);
+                    let avp = diameter::avp::Avp::new(
+                        avp_definition.code,
+                        avp_definition.vendor_id,
+                        0,
+                        value,
+                    );
 
                     avps.push(avp);
                 }

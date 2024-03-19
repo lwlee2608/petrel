@@ -72,16 +72,16 @@ local option = {
                             { name = "Subscription-Id-Data", value = "10133100" },
                         },
                     },
-                    -- { name = "Service-Information",
-                    --     value = {
-                    --         { name = "PS-Information",
-                    --             value = {
-                    --                 { name = "Called-Station-Id", value = "10999" },
-                    --                 { name = "3GPP-MS-Timezone", value = "2020-01-01" },
-                    --             },
-                    --         }
-                    --     },
-                    -- },
+                    { name = "Service-Information",
+                        value = {
+                            { name = "PS-Information",
+                                value = {
+                                    { name = "Called-Station-Id", value = "10999" },
+                                    -- { name = "3GPP-MS-Timezone", value = "2020-01-01" },
+                                },
+                            }
+                        },
+                    },
                     { name = "Multiple-Services-Indicator", value = "1" },
                     { name = "Multiple-Services-Credit-Control",
                         value = {
