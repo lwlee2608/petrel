@@ -51,7 +51,7 @@ local option = {
             },
         },
         {
-            name = "CCR",
+            name = "Ro-CCR",
             type = "Repeating",
             message = {
                 command = "Credit-Control", application = "Charging Control", flags = 0,
@@ -60,16 +60,41 @@ local option = {
                     { name = "Origin-Realm", value = "realm.example.com" },
                     { name = "Product-Name", value = "Petrel" },
                     { name = "Session-Id", value = "ses;${COUNTER}_${RANDOM}" },
+                    { name = "Auth-Application-Id", value = "4" },
+                    { name = "Service-Identifier", value = "1003" },
+                    { name = "Service-Context-Id", value = "1003" },
                     { name = "CC-Request-Type", value = "1" },
-                    { name = "CC-Request-Number", value = "100" },
+                    { name = "CC-Request-Number", value = "1" },
+                    -- { name = "Event-Timestamp", value = "2020-01-01T00:00:00Z" },
                     { name = "Subscription-Id",
                         value = {
                             { name = "Subscription-Id-Type", value = "1" },
-                            { name = "Subscription-Id-Data", value = "subs-data" },
+                            { name = "Subscription-Id-Data", value = "10133100" },
                         },
                     },
-                    { name = "Called-Station-Id", value = "10999" },
+                    -- { name = "Service-Information",
+                    --     value = {
+                    --         { name = "PS-Information",
+                    --             value = {
+                    --                 { name = "Called-Station-Id", value = "10999" },
+                    --                 { name = "3GPP-MS-Timezone", value = "2020-01-01" },
+                    --             },
+                    --         }
+                    --     },
+                    -- },
+                    { name = "Multiple-Services-Indicator", value = "1" },
+                    { name = "Multiple-Services-Credit-Control",
+                        value = {
+                            { name = "Rating-Group", value = "1003" },
+                            { name = "Requested-Service-Unit",
+                                value = {
+                                    { name = "CC-Total-Octets", value = "1048576" },
+                                },
+                            },
+                        },
+                    },
                     { name = "SGSN-Address", value = "127.0.0.1" },
+                    { name = "Requested-Action", value = "0" },
                 },
             },
         },

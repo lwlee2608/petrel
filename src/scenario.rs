@@ -74,7 +74,9 @@ impl<'a> Message<'a> {
                 .get_avp_by_name(&a.name)
                 .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
-            let value = Value::new(&a.value, avp_definition.avp_type, global)?;
+            let value = Value::new(&a.value, avp_definition.avp_type, global)
+                .map_err(|e| format!("AVP '{}', error: {}", avp_definition.name, e.to_string()))?;
+
             let avp_flags = if avp_definition.m_flag {
                 diameter::avp::flags::M
             } else {
@@ -144,18 +146,18 @@ pub fn string_to_avp_value(
         }
         AvpType::Identity => Identity::new(&str).into(),
         AvpType::DiameterURI => UTF8String::new(&str).into(),
-        AvpType::Enumerated => Enumerated::new(str.parse().unwrap()).into(),
-        AvpType::Float32 => Unsigned32::new(str.parse().unwrap()).into(),
-        AvpType::Float64 => Unsigned64::new(str.parse().unwrap()).into(),
-        AvpType::Integer32 => Unsigned32::new(str.parse().unwrap()).into(),
-        AvpType::Integer64 => Unsigned64::new(str.parse().unwrap()).into(),
+        AvpType::Enumerated => Enumerated::new(str.parse()?).into(),
+        AvpType::Float32 => Unsigned32::new(str.parse()?).into(),
+        AvpType::Float64 => Unsigned64::new(str.parse()?).into(),
+        AvpType::Integer32 => Unsigned32::new(str.parse()?).into(),
+        AvpType::Integer64 => Unsigned64::new(str.parse()?).into(),
         AvpType::OctetString => OctetString::new(str.as_bytes().to_vec()).into(),
-        AvpType::Unsigned32 => Unsigned32::new(str.parse().unwrap()).into(),
-        AvpType::Unsigned64 => Unsigned64::new(str.parse().unwrap()).into(),
+        AvpType::Unsigned32 => Unsigned32::new(str.parse()?).into(),
+        AvpType::Unsigned64 => Unsigned64::new(str.parse()?).into(),
         AvpType::UTF8String => UTF8String::new(&str).into(),
-        AvpType::Time => Unsigned32::new(str.parse().unwrap()).into(),
-        AvpType::Grouped => return Err("unexpected Grouped AVP type".into()),
-        AvpType::Unknown => return Err("unexpected Unknown AVP type".into()),
+        AvpType::Time => Unsigned32::new(str.parse()?).into(),
+        AvpType::Grouped => return Err("Invalid Grouped AVP value".into()),
+        AvpType::Unknown => return Err("Unknown AVP type".into()),
     };
     Ok(value)
 }
@@ -183,7 +185,7 @@ impl<'a> Value<'a> {
         match source {
             options::Value::String(source) => {
                 // Scan for variables
-                let variable_pattern = Regex::new(r"\$\{([^}]+)\}").unwrap();
+                let variable_pattern = Regex::new(r"\$\{([^}]+)\}")?;
                 let mut variables = vec![];
                 for caps in variable_pattern.captures_iter(source) {
                     let cap = caps[1].to_string();
@@ -193,7 +195,7 @@ impl<'a> Value<'a> {
 
                 // If no variable found, make this a constant
                 let constant = if variables.is_empty() {
-                    let value = string_to_avp_value(source, avp_type).unwrap();
+                    let value = string_to_avp_value(source, avp_type)?;
                     Some(value)
                 } else {
                     None
