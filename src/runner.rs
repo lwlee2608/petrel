@@ -1,7 +1,8 @@
 use crate::global::Global;
 use crate::options::Options;
 use crate::scenario;
-use diameter::transport::eventloop::DiameterClient;
+use diameter::transport::DiameterClient;
+// use diameter::transport::eventloop::DiameterClient;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant;
@@ -43,18 +44,26 @@ pub struct RunReport {
 pub async fn run(options: Options, param: RunParameter) -> RunReport {
     let global = Global::new(&options.globals);
 
+    // TODO - remove hardcode
     let mut init_scenario =
         scenario::Scenario::new(options.scenarios.get(0).unwrap(), &global).unwrap();
 
     let mut repeating_scenario =
         scenario::Scenario::new(options.scenarios.get(1).unwrap(), &global).unwrap();
 
+    // TODO
+    // let mut ccrt_scenario =
+    //     scenario::Scenario::new(options.scenarios.get(2).unwrap(), &global).unwrap();
+
     let local = LocalSet::new();
     local
         .run_until(async move {
             // Connect to server
             let mut client = DiameterClient::new("localhost:3868");
-            let _ = client.connect().await;
+            let mut handler = client.connect().await.unwrap();
+            task::spawn_local(async move {
+                DiameterClient::handle(&mut handler).await;
+            });
 
             // Init, Init scenario
             let cer = init_scenario.next_message().unwrap();
