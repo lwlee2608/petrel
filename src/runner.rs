@@ -25,7 +25,8 @@ impl RunParameter {
         let batch_size = if batch_size == 0 { 1 } else { batch_size };
         let batches_per_second = rps as f64 / batch_size as f64;
         let interval = Duration::from_secs_f64(1.0 / batches_per_second);
-        let total_iterations = rps * options.duration_s;
+        let duration_s = options.duration.as_secs() as u32;
+        let total_iterations = rps * duration_s;
 
         RunParameter {
             target_tps: rps,
@@ -138,8 +139,8 @@ mod tests {
         let options = Options {
             parallel: 1,
             call_rate: 500,
-            call_timeout_ms: 2000,
-            duration_s: 120,
+            call_timeout: Duration::from_millis(2000),
+            duration: Duration::from_secs(120),
             log_requests: false,
             log_responses: false,
             protocol: options::Protocol::Diameter,

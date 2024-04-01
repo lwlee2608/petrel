@@ -21,3 +21,4 @@ reqwest = { version = "0.11", features = ["blocking"] }
 
 serde = { version = "1.0", features = ["derive"] }
 mlua = { version = "0.9.5", features = ["lua54", "vendored", "serialize"] }
+humantime = "2.1.0"

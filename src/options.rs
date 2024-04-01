@@ -3,13 +3,16 @@ use std::collections::HashMap;
 use mlua::prelude::LuaSerdeExt;
 use mlua::UserData;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Options {
     pub parallel: u32,
     pub call_rate: u32,
-    pub call_timeout_ms: u32,
-    pub duration_s: u32,
+    #[serde(deserialize_with = "humantime_duration_deserializer")]
+    pub call_timeout: Duration,
+    #[serde(deserialize_with = "humantime_duration_deserializer")]
+    pub duration: Duration,
     pub log_requests: bool,
     pub log_responses: bool,
     pub globals: Global,
@@ -94,6 +97,14 @@ pub fn load(filename: &str) -> Options {
     options
 }
 
+fn humantime_duration_deserializer<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    humantime::parse_duration(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -106,8 +117,8 @@ mod tests {
                 r#"{ 
                     parallel = 4,
                     call_rate = 20000, 
-                    call_timeout_ms = 1000, 
-                    duration_s = 60, 
+                    call_timeout = "1000ms", 
+                    duration = "60s", 
                     log_requests = false,
                     log_responses = false,
                     protocol = "Diameter",
@@ -147,8 +158,8 @@ mod tests {
 
         assert_eq!(options.parallel, 4);
         assert_eq!(options.call_rate, 20000);
-        assert_eq!(options.call_timeout_ms, 1000);
-        assert_eq!(options.duration_s, 60);
+        assert_eq!(options.call_timeout, Duration::from_millis(1000));
+        assert_eq!(options.duration, Duration::from_secs(60));
         assert_eq!(options.log_requests, false);
         assert_eq!(options.log_responses, false);
         assert_eq!(options.globals.variables.len(), 1);
