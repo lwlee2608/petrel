@@ -2,6 +2,7 @@ use crate::global::Global;
 use crate::options::Options;
 use crate::scenario;
 use diameter::transport::DiameterClient;
+use diameter::transport::DiameterClientConfig;
 // use diameter::transport::eventloop::DiameterClient;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -60,7 +61,11 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
     local
         .run_until(async move {
             // Connect to server
-            let mut client = DiameterClient::new("localhost:3868");
+            let config = DiameterClientConfig {
+                use_tls: false,
+                verify_cert: false,
+            };
+            let mut client = DiameterClient::new("localhost:3868", config);
             let mut handler = client.connect().await.unwrap();
             task::spawn_local(async move {
                 DiameterClient::handle(&mut handler).await;
