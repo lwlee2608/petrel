@@ -1,7 +1,7 @@
 local option = {
     parallel = 4,
     call_timeout = "1000ms",
-    -- duration_s = "2s",
+    -- duration = "2s",
     -- call_rate = 1,
     -- log_requests = true,
     -- log_responses = true,

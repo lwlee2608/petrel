@@ -76,7 +76,9 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             if options.log_requests {
                 log::info!("CER: {}", cer);
             }
-            let cea = client.send_message(cer).await.unwrap();
+            let resp = client.send_message(cer).await.unwrap();
+            let cea = resp.await.unwrap();
+
             if options.log_responses {
                 log::info!("CEA: {}", cea);
             }
@@ -107,12 +109,11 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
                     }
 
                     let counter = Rc::clone(&counter);
-                    let mut request = client.request(ccr).await.unwrap();
+                    let resp = client.send_message(ccr).await.unwrap();
                     let _ = task::spawn_local(async move {
-                        let _ = request.send().await.expect("Failed to create request");
-                        let _cca = request.response().await.expect("Failed to get response");
+                        let cca = resp.await.expect("Failed to get response");
                         if options.log_responses {
-                            log::info!("Response: {}", _cca);
+                            log::info!("Response: {}", cca);
                         }
                         *counter.borrow_mut() += 1;
                     });
