@@ -1,11 +1,12 @@
+use crate::dictionary;
 use crate::global::Global;
 use crate::options::Options;
 use crate::scenario;
 use diameter::transport::DiameterClient;
 use diameter::transport::DiameterClientConfig;
-// use diameter::transport::eventloop::DiameterClient;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::task;
 use tokio::task::LocalSet;
@@ -46,12 +47,23 @@ pub struct RunReport {
 pub async fn run(options: Options, param: RunParameter) -> RunReport {
     let global = Global::new(&options.globals);
 
-    // TODO - remove hardcode
-    let mut init_scenario =
-        scenario::Scenario::new(options.scenarios.get(0).unwrap(), &global).unwrap();
+    let dict = dictionary::load(options.dictionaries.clone()).unwrap();
+    let dict = Arc::new(dict);
 
-    let mut repeating_scenario =
-        scenario::Scenario::new(options.scenarios.get(1).unwrap(), &global).unwrap();
+    // TODO - remove hardcode
+    let mut init_scenario = scenario::Scenario::new(
+        options.scenarios.get(0).unwrap(),
+        &global,
+        Arc::clone(&dict),
+    )
+    .unwrap();
+
+    let mut repeating_scenario = scenario::Scenario::new(
+        options.scenarios.get(1).unwrap(),
+        &global,
+        Arc::clone(&dict),
+    )
+    .unwrap();
 
     // TODO
     // let mut ccrt_scenario =
@@ -67,8 +79,9 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             };
             let mut client = DiameterClient::new("localhost:3868", config);
             let mut handler = client.connect().await.unwrap();
+            let dict_ref = Arc::clone(&dict);
             task::spawn_local(async move {
-                DiameterClient::handle(&mut handler).await;
+                DiameterClient::handle(&mut handler, dict_ref).await;
             });
 
             // Init, Init scenario

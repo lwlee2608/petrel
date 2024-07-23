@@ -1,11 +1,12 @@
 use diameter::dictionary;
+use diameter::dictionary::Dictionary;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 use url::Url;
 
-pub fn load(filenames: Vec<String>) -> Result<(), Box<dyn Error>> {
-    let mut dict = dictionary::DEFAULT_DICT.write().unwrap();
+pub fn load(filenames: Vec<String>) -> Result<Dictionary, Box<dyn Error>> {
+    let mut dict = Dictionary::new(&[&dictionary::DEFAULT_DICT_XML]);
 
     for filename in filenames {
         let xml = if Url::parse(&filename).is_ok() {
@@ -20,5 +21,5 @@ pub fn load(filenames: Vec<String>) -> Result<(), Box<dyn Error>> {
 
         dict.load_xml(&xml);
     }
-    Ok(())
+    Ok(dict)
 }

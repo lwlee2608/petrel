@@ -55,6 +55,7 @@ local option = {
                     { name = "Host-IP-Address", value = "::1" },
                     { name = "Auth-Application-Id", value = "4" },
                     { name = "Product-Name", value = "Petrel" },
+                    { name = "Vendor-Id", value = "12345" },
                 },
             },
         },

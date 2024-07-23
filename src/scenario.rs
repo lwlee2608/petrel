@@ -17,6 +17,7 @@ use diameter::avp::UTF8String;
 use diameter::avp::Unsigned32;
 use diameter::avp::Unsigned64;
 use diameter::dictionary;
+use diameter::dictionary::Dictionary;
 use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
 use regex::Regex;
@@ -25,15 +26,20 @@ use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
 use std::result::Result;
+use std::sync::Arc;
 
 pub struct Scenario<'a> {
     message: Message<'a>,
 }
 
 impl<'a> Scenario<'a> {
-    pub fn new(options: &options::Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
+    pub fn new(
+        options: &options::Scenario,
+        global: &'a Global,
+        dict: Arc<Dictionary>,
+    ) -> Result<Self, Box<dyn Error>> {
         return Ok(Scenario {
-            message: Message::new(options, global)?,
+            message: Message::new(options, global, dict)?,
         });
     }
 
@@ -48,10 +54,15 @@ pub struct Message<'a> {
     flags: u8,
     seq_num: u32,
     avps: Vec<Avp<'a>>,
+    dict: Arc<Dictionary>,
 }
 
 impl<'a> Message<'a> {
-    pub fn new(scenario: &options::Scenario, global: &'a Global) -> Result<Self, Box<dyn Error>> {
+    pub fn new(
+        scenario: &options::Scenario,
+        global: &'a Global,
+        dict: Arc<Dictionary>,
+    ) -> Result<Self, Box<dyn Error>> {
         let dictionary = dictionary::DEFAULT_DICT.read().unwrap();
 
         let command_code = dictionary
@@ -77,7 +88,7 @@ impl<'a> Message<'a> {
                 .get_avp_by_name(&a.name)
                 .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
-            let value = Value::new(&a.value, avp_definition.avp_type, global)
+            let value = Value::new(&a.value, avp_definition.avp_type, global, Arc::clone(&dict))
                 .map_err(|e| format!("AVP '{}', error: {}", avp_definition.name, e.to_string()))?;
 
             let avp_flags = if avp_definition.m_flag {
@@ -100,6 +111,7 @@ impl<'a> Message<'a> {
             flags,
             seq_num: 0,
             avps,
+            dict,
         })
     }
 
@@ -111,16 +123,12 @@ impl<'a> Message<'a> {
             self.flags,
             self.seq_num,
             self.seq_num,
+            Arc::clone(&self.dict),
         );
 
         for avp in &self.avps {
             let value = avp.value.get_value()?;
-            diameter_msg.add_avp(diameter::avp::Avp::new(
-                avp.code,
-                avp.vendor_id,
-                avp.flags,
-                value,
-            ));
+            diameter_msg.add_avp(avp.code, avp.vendor_id, avp.flags, value);
         }
 
         Ok(diameter_msg)
@@ -190,6 +198,7 @@ impl<'a> Value<'a> {
         source: &options::Value,
         avp_type: diameter::avp::AvpType,
         global: &'a Global,
+        dict: Arc<Dictionary>,
     ) -> Result<Self, Box<dyn Error>> {
         match source {
             options::Value::String(source) => {
@@ -230,18 +239,20 @@ impl<'a> Value<'a> {
                         .get_avp_by_name(&a.name)
                         .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
-                    let value = Value::new(&a.value, avp_definition.avp_type, global)?;
+                    let value =
+                        Value::new(&a.value, avp_definition.avp_type, global, Arc::clone(&dict))?;
                     let value = value.get_value()?;
                     let avp = diameter::avp::Avp::new(
                         avp_definition.code,
                         avp_definition.vendor_id,
                         0,
                         value,
+                        Arc::clone(&dict),
                     );
 
                     avps.push(avp);
                 }
-                let value: AvpValue = Grouped::new(avps).into();
+                let value: AvpValue = Grouped::new(avps, dict).into();
                 let constant = Some(value);
                 Ok(Value {
                     source: "TODO".into(),
@@ -279,6 +290,9 @@ mod tests {
 
     #[test]
     fn test_constant() {
+        let dict = Dictionary::new(&vec![]);
+        let dict = Arc::new(dict);
+
         let global = Global::new(&options::Global {
             variables: vec![std::iter::once((
                 "COUNTER".into(),
@@ -296,6 +310,7 @@ mod tests {
             &options::Value::String("example.origin.host".into()),
             AvpType::UTF8String,
             &global,
+            dict,
         )
         .unwrap();
 
@@ -306,6 +321,9 @@ mod tests {
 
     #[test]
     fn test_counter_variable() {
+        let dict = Dictionary::new(&vec![]);
+        let dict = Arc::new(dict);
+
         let global = Global::new(&options::Global {
             variables: vec![std::iter::once((
                 "COUNTER".into(),
@@ -323,6 +341,7 @@ mod tests {
             &options::Value::String("ses;${COUNTER}".into()),
             AvpType::UTF8String,
             &global,
+            dict,
         )
         .unwrap();
 
@@ -333,6 +352,9 @@ mod tests {
 
     #[test]
     fn test_2_counters_variable() {
+        let dict = Dictionary::new(&vec![]);
+        let dict = Arc::new(dict);
+
         let global = Global::new(&options::Global {
             variables: vec![
                 std::iter::once((
@@ -362,6 +384,7 @@ mod tests {
             &options::Value::String("ses;${COUNTER1}_${COUNTER2}".into()),
             AvpType::UTF8String,
             &global,
+            dict,
         )
         .unwrap();
 
