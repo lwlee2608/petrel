@@ -29,6 +29,7 @@ use std::result::Result;
 use std::sync::Arc;
 
 pub struct Scenario<'a> {
+    name: String,
     message: Message<'a>,
 }
 
@@ -39,12 +40,17 @@ impl<'a> Scenario<'a> {
         dict: Arc<Dictionary>,
     ) -> Result<Self, Box<dyn Error>> {
         return Ok(Scenario {
+            name: options.name.clone(),
             message: Message::new(options, global, dict)?,
         });
     }
 
     pub fn next_message(&mut self) -> Result<DiameterMessage, Box<dyn Error>> {
         self.message.message()
+    }
+
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }
 

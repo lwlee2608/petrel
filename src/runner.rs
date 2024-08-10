@@ -128,28 +128,23 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
 
             let start = Instant::now();
 
+            let mut scenario_id = 0;
             let (resp_tx, mut resp_rx) = channel(32);
 
-            let ccri_scenario = repeating_scenarios.get_mut(0).unwrap();
-            let ccri = ccri_scenario.next_message().unwrap();
-            eventloop_tx
-                .send(Event::SendMessage(ccri, resp_tx.clone()))
-                .await
-                .unwrap();
+            while let Some(scenario) = repeating_scenarios.get_mut(scenario_id) {
+                log::info!("Running scenario: {}", scenario.get_name());
+                let ccrt = scenario.next_message().unwrap();
+                let ctx = EventContext { scenario_id };
+                eventloop_tx
+                    .send(Event::SendMessage(ctx, ccrt, resp_tx.clone()))
+                    .await
+                    .unwrap();
 
-            if let Some(ccai) = resp_rx.recv().await {
-                log::info!("Received CCA-I: {}", ccai);
-            }
-
-            let ccrt_scenario = repeating_scenarios.get_mut(1).unwrap();
-            let ccrt = ccrt_scenario.next_message().unwrap();
-            eventloop_tx
-                .send(Event::SendMessage(ccrt, resp_tx.clone()))
-                .await
-                .unwrap();
-
-            if let Some(ccat) = resp_rx.recv().await {
-                log::info!("Received CCA-T: {}", ccat);
+                if let Some((ctx, ccat)) = resp_rx.recv().await {
+                    log::info!("Next scenario id: {}", ctx.scenario_id);
+                    log::info!("Received CCA: {}", ccat);
+                    scenario_id = ctx.scenario_id;
+                }
             }
 
             // for _ in 0..total_iterations {
@@ -188,11 +183,11 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             // }
             //
 
-            // sleep 1
-            // sleep(Duration::from_secs(1)).await;
-
             // Terminate the event loop
             eventloop_tx.send(Event::Terminate).await.unwrap();
+
+            // sleep 1
+            // sleep(Duration::from_secs(1)).await;
 
             let elapsed = start.elapsed();
             let elapsed_s = elapsed.as_secs() as f64 + elapsed.subsec_millis() as f64 / 1000.0;
@@ -204,12 +199,16 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
         .await
 }
 
-// struct EventContext {
-//     scenario_id: usize,
-// }
+struct EventContext {
+    scenario_id: usize,
+}
 
 enum Event {
-    SendMessage(DiameterMessage, Sender<DiameterMessage>),
+    SendMessage(
+        EventContext,
+        DiameterMessage,
+        Sender<(EventContext, DiameterMessage)>,
+    ),
     Terminate,
 }
 
@@ -219,7 +218,7 @@ async fn event_loop(
 ) -> Result<(), Box<dyn std::error::Error>> {
     while let Some(event) = rx.recv().await {
         match event {
-            Event::SendMessage(request, tx) => {
+            Event::SendMessage(ctx, request, tx) => {
                 log::info!("Sending message: {}", request);
                 // send message
                 let resp = client.send_message(request).await.unwrap();
@@ -227,8 +226,12 @@ async fn event_loop(
 
                 // log::info!("Received response: {}", response);
 
+                let scenario_id = ctx.scenario_id + 1;
+
                 // Send response back to main runner loop
-                tx.send(response).await.unwrap();
+                tx.send((EventContext { scenario_id }, response))
+                    .await
+                    .unwrap();
             }
             Event::Terminate => {
                 log::info!("Terminating event loop");
