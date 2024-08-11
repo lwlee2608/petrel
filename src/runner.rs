@@ -75,7 +75,7 @@ impl RunParameter {
 }
 
 pub struct RunReport {
-    pub tps: f64,
+    pub rps: f64,
     pub elapsed: Duration,
 }
 
@@ -99,17 +99,6 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
         let s = scenario::Scenario::new(scenario, &global, Arc::clone(&dict)).unwrap();
         repeating_scenarios.push(s);
     }
-
-    // let mut ccri_scenario = scenario::Scenario::new(
-    //     options.scenarios.get(1).unwrap(),
-    //     &global,
-    //     Arc::clone(&dict),
-    // )
-    // .unwrap();
-
-    // TODO
-    // let mut ccrt_scenario =
-    //     scenario::Scenario::new(options.scenarios.get(2).unwrap(), &global).unwrap();
 
     let local = LocalSet::new();
     local
@@ -167,7 +156,11 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
                 for _ in 0..param.batch_size {
                     let first_scenario = repeating_scenarios.get_mut(scenario_id).unwrap();
                     let request = first_scenario.next_message().unwrap();
-                    // log::info!("Scenario: {}", first_scenario.get_name());
+
+                    log::debug!("Scenario: {}", first_scenario.get_name());
+                    if options.log_requests {
+                        log::info!("Request : {}", request);
+                    }
 
                     let ctx = EventContext { scenario_id };
                     eventloop_tx
@@ -180,17 +173,19 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
                 let total_response = param.batch_size * scenario_count;
 
                 for _ in 0..total_response {
-                    if let Some((ctx, _response)) = resp_rx.recv().await {
-                        // if options.log_responses {
-                        //     log::info!("CCAI Response : {}", response);
-                        // }
-                        // log::info!("response received");
+                    if let Some((ctx, response)) = resp_rx.recv().await {
+                        if options.log_responses {
+                            log::info!("Response : {}", response);
+                        }
                         scenario_id = ctx.scenario_id;
 
                         if let Some(scenario) = repeating_scenarios.get_mut(scenario_id) {
-                            // log::info!("Scenario: {}", scenario.get_name());
                             let request = scenario.next_message().unwrap();
-                            // log::info!("sending request");
+
+                            log::debug!("Scenario: {}", scenario.get_name());
+                            if options.log_requests {
+                                log::info!("Request : {}", request);
+                            }
 
                             let ctx = EventContext { scenario_id };
                             eventloop_tx
@@ -202,38 +197,6 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
                 }
             }
 
-            //
-            // // We don't need atomic operation since we are running inside LocalSet
-            // let counter: Rc<RefCell<u32>> = Rc::new(RefCell::new(0));
-            //
-            // for _ in 0..param.total_iterations / param.batch_size {
-            //     interval.tick().await;
-            //
-            //     for _ in 0..param.batch_size {
-            //         // let ccr = ccr(client.get_next_seq_num());
-            //         let ccr = repeating_scenario.next_message().unwrap();
-            //         if options.log_requests {
-            //             log::info!("Request: {}", ccr);
-            //         }
-            //
-            //         let counter = Rc::clone(&counter);
-            //         let resp = client.send_message(ccr).await.unwrap();
-            //         let _ = task::spawn_local(async move {
-            //             let cca = resp.await.expect("Failed to get response");
-            //             if options.log_responses {
-            //                 log::info!("Response: {}", cca);
-            //             }
-            //             *counter.borrow_mut() += 1;
-            //         });
-            //     }
-            // }
-            //
-            // log::info!("Waiting for all requests to finish");
-            // while *counter.borrow() < param.total_iterations {
-            //     sleep(Duration::from_millis(50)).await;
-            // }
-            //
-
             // Terminate the event loop
             eventloop_tx.send(Event::Terminate).await.unwrap();
 
@@ -243,10 +206,10 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             let elapsed = start.elapsed();
             let elapsed_s = elapsed.as_secs() as f64 + elapsed.subsec_millis() as f64 / 1000.0;
             let total_requests = param.total_requests as f64;
-            let tps = total_requests as f64 / (elapsed.as_micros() as f64 / 1_000_000.0);
-            log::info!("Elapsed: {:.3}s , {} requests per second", elapsed_s, tps,);
+            let rps = total_requests as f64 / (elapsed.as_micros() as f64 / 1_000_000.0);
+            log::info!("Elapsed: {:.3}s , {} requests per second", elapsed_s, rps,);
 
-            RunReport { tps, elapsed }
+            RunReport { rps, elapsed }
         })
         .await
 }

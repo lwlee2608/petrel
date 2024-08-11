@@ -56,13 +56,13 @@ async fn main() {
 
     drop(tx);
 
-    let mut total_tps = 0f64;
+    let mut total_rps = 0f64;
     let mut elapsed = tokio::time::Duration::from_secs(0);
     while let Some(report) = rx.recv().await {
-        total_tps += report.tps;
+        total_rps += report.rps;
         elapsed = elapsed.max(report.elapsed);
     }
 
-    log::info!("Total TPS: {}", total_tps);
+    log::info!("Total RPS: {}", total_rps);
     log::info!("Elapsed: {:?}", elapsed);
 }
