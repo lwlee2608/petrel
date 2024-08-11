@@ -27,6 +27,7 @@ use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
 use std::result::Result;
 use std::sync::Arc;
+use uuid::Uuid;
 
 pub struct Scenario<'a> {
     name: String,
@@ -123,12 +124,16 @@ impl<'a> Message<'a> {
 
     pub fn message(&mut self) -> Result<DiameterMessage, Box<dyn Error>> {
         self.seq_num += 1;
+        // TODO remove this
+        let seq_num = Uuid::new_v4().as_u128() as u32;
         let mut diameter_msg = DiameterMessage::new(
             self.command_code,
             self.application_id,
             self.flags,
-            self.seq_num,
-            self.seq_num,
+            seq_num,
+            seq_num,
+            // self.seq_num,
+            // self.seq_num,
             Arc::clone(&self.dict),
         );
 

@@ -5,15 +5,15 @@ use crate::scenario;
 use diameter::transport::DiameterClient;
 use diameter::transport::DiameterClientConfig;
 use diameter::DiameterMessage;
-use std::cell::RefCell;
-use std::rc::Rc;
+// use std::cell::RefCell;
+// use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc::channel;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task;
 use tokio::task::LocalSet;
-use tokio::time::{self, sleep, Duration};
+use tokio::time::{self, Duration};
 
 // pub struct Runner {
 //     param: RunParameter,
@@ -32,10 +32,15 @@ impl RunParameter {
         let rps = options.call_rate;
         let batch_size = (rps / 200) as u32;
         let batch_size = if batch_size == 0 { 1 } else { batch_size };
+        // let batch_size = 3;
         let batches_per_second = rps as f64 / batch_size as f64;
         let interval = Duration::from_secs_f64(1.0 / batches_per_second);
-        let duration_s = options.duration.as_secs() as u32;
-        let total_iterations = rps * duration_s;
+
+        // TODO fixme
+        //
+        // let duration_s = options.duration.as_secs() as u32;
+        // let total_iterations = rps * duration_s;
+        let total_iterations = 2000;
 
         RunParameter {
             target_tps: rps,
@@ -117,39 +122,60 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
 
             // Start Repeating Scenario
             log::info!(
-                "Sending total request {} with {} TPS, batch size {}, interval {}",
+                "Sending total iterations {} with {} TPS, batch size {}, interval {}",
                 param.total_iterations,
                 param.target_tps,
                 param.batch_size,
                 param.interval.as_secs_f64()
             );
 
-            // let mut interval = time::interval(param.interval);
-
             let start = Instant::now();
 
-            let mut scenario_id = 0;
-            let (resp_tx, mut resp_rx) = channel(32);
+            // Runner loop
+            let mut interval = time::interval(param.interval);
+            for _ in 0..param.total_iterations {
+                interval.tick().await;
 
-            while let Some(scenario) = repeating_scenarios.get_mut(scenario_id) {
-                log::info!("Running scenario: {}", scenario.get_name());
-                let ccrt = scenario.next_message().unwrap();
-                let ctx = EventContext { scenario_id };
-                eventloop_tx
-                    .send(Event::SendMessage(ctx, ccrt, resp_tx.clone()))
-                    .await
-                    .unwrap();
+                let mut scenario_id = 0;
+                let (resp_tx, mut resp_rx) = channel(32);
 
-                if let Some((ctx, ccat)) = resp_rx.recv().await {
-                    log::info!("Next scenario id: {}", ctx.scenario_id);
-                    log::info!("Received CCA: {}", ccat);
-                    scenario_id = ctx.scenario_id;
+                for _ in 0..param.batch_size {
+                    let first_scenario = repeating_scenarios.get_mut(scenario_id).unwrap();
+                    let request = first_scenario.next_message().unwrap();
+                    // log::info!("Scenario: {}", first_scenario.get_name());
+
+                    let ctx = EventContext { scenario_id };
+                    eventloop_tx
+                        .send(Event::SendMessage(ctx, request, resp_tx.clone()))
+                        .await
+                        .unwrap();
+                }
+
+                let scenario_count = repeating_scenarios.len() as u32;
+                let total_response = param.batch_size * scenario_count;
+
+                for _ in 0..total_response {
+                    if let Some((ctx, _response)) = resp_rx.recv().await {
+                        // if options.log_responses {
+                        //     log::info!("CCAI Response : {}", response);
+                        // }
+                        // log::info!("response received");
+                        scenario_id = ctx.scenario_id;
+
+                        if let Some(scenario) = repeating_scenarios.get_mut(scenario_id) {
+                            // log::info!("Scenario: {}", scenario.get_name());
+                            let request = scenario.next_message().unwrap();
+                            // log::info!("sending request");
+
+                            let ctx = EventContext { scenario_id };
+                            eventloop_tx
+                                .send(Event::SendMessage(ctx, request, resp_tx.clone()))
+                                .await
+                                .unwrap();
+                        }
+                    }
                 }
             }
-
-            // for _ in 0..total_iterations {
-            //     interval.tick().await;
-            // }
 
             //
             // // We don't need atomic operation since we are running inside LocalSet
@@ -191,7 +217,8 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
 
             let elapsed = start.elapsed();
             let elapsed_s = elapsed.as_secs() as f64 + elapsed.subsec_millis() as f64 / 1000.0;
-            let tps = param.total_iterations as f64 / (elapsed.as_micros() as f64 / 1_000_000.0);
+            let total_requests = param.total_iterations * param.batch_size;
+            let tps = total_requests as f64 / (elapsed.as_micros() as f64 / 1_000_000.0);
             log::info!("Elapsed: {:.3}s , {} requests per second", elapsed_s, tps,);
 
             RunReport { tps, elapsed }
@@ -219,19 +246,22 @@ async fn event_loop(
     while let Some(event) = rx.recv().await {
         match event {
             Event::SendMessage(ctx, request, tx) => {
-                log::info!("Sending message: {}", request);
+                // log::info!("Sending message: {}", request);
                 // send message
                 let resp = client.send_message(request).await.unwrap();
-                let response = resp.await.unwrap();
+                tokio::spawn(async move {
+                    // let _ = task::spawn_local(async move {
+                    let response = resp.await.unwrap();
 
-                // log::info!("Received response: {}", response);
+                    // log::info!("Received response: {}", response);
 
-                let scenario_id = ctx.scenario_id + 1;
+                    let scenario_id = ctx.scenario_id + 1;
 
-                // Send response back to main runner loop
-                tx.send((EventContext { scenario_id }, response))
-                    .await
-                    .unwrap();
+                    // Send response back to main runner loop
+                    tx.send((EventContext { scenario_id }, response))
+                        .await
+                        .unwrap();
+                });
             }
             Event::Terminate => {
                 log::info!("Terminating event loop");
