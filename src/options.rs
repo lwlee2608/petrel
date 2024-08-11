@@ -8,17 +8,25 @@ use std::time::Duration;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Options {
     pub parallel: u32,
-    pub call_rate: u32,
+    pub target_rps: u32,
     #[serde(deserialize_with = "humantime_duration_deserializer")]
     pub call_timeout: Duration,
     #[serde(deserialize_with = "humantime_duration_deserializer")]
     pub duration: Duration,
+    pub batch_size: BatchSize,
     pub log_requests: bool,
     pub log_responses: bool,
     pub globals: Global,
     pub protocol: Protocol,
     pub dictionaries: Vec<String>,
     pub scenarios: Vec<Scenario>,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+#[serde(untagged)]
+pub enum BatchSize {
+    Auto(String),
+    Fixed(u32),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -116,7 +124,8 @@ mod tests {
             .load(
                 r#"{ 
                     parallel = 4,
-                    call_rate = 20000, 
+                    target_rps = 20000, 
+                    batch_size = 5,
                     call_timeout = "1000ms", 
                     duration = "60s", 
                     log_requests = false,
@@ -157,7 +166,8 @@ mod tests {
         let options: Options = lua.from_value(value)?;
 
         assert_eq!(options.parallel, 4);
-        assert_eq!(options.call_rate, 20000);
+        assert_eq!(options.target_rps, 20000);
+        assert_eq!(options.batch_size, BatchSize::Fixed(5));
         assert_eq!(options.call_timeout, Duration::from_millis(1000));
         assert_eq!(options.duration, Duration::from_secs(60));
         assert_eq!(options.log_requests, false);
