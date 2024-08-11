@@ -1,6 +1,7 @@
 use crate::dictionary;
 use crate::global::Global;
 use crate::options::Options;
+use crate::options::ScenarioType;
 use crate::scenario;
 use diameter::transport::DiameterClient;
 use diameter::transport::DiameterClientConfig;
@@ -25,28 +26,50 @@ pub struct RunParameter {
     pub batch_size: u32,
     pub interval: Duration,
     pub total_iterations: u32,
+    pub total_requests: u32,
+    pub scenario_count: usize,
 }
 
 impl RunParameter {
     pub fn new(options: &Options) -> RunParameter {
-        let rps = options.call_rate;
-        let batch_size = (rps / 200) as u32;
+        // count scenario with type == Repeating
+        let scenario_count = options
+            .scenarios
+            .iter()
+            .filter(|s| s.scenario_type == ScenarioType::Repeating)
+            .count();
+
+        let scenario_count = if scenario_count == 0 {
+            1
+        } else {
+            scenario_count
+        };
+
+        let target_rps = options.call_rate;
+        let target_tps = target_rps / scenario_count as u32;
+        let target_tps = if target_tps == 0 { 1 } else { target_tps };
+
+        let batch_size = (target_tps / 200) as u32;
         let batch_size = if batch_size == 0 { 1 } else { batch_size };
         // let batch_size = 3;
-        let batches_per_second = rps as f64 / batch_size as f64;
+
+        let batches_per_second = target_tps as f64 / batch_size as f64;
         let interval = Duration::from_secs_f64(1.0 / batches_per_second);
 
-        // TODO fixme
-        //
-        // let duration_s = options.duration.as_secs() as u32;
-        // let total_iterations = rps * duration_s;
-        let total_iterations = 2000;
+        let duration_s = options.duration.as_secs() as u32;
+
+        let total_requests = target_rps * duration_s;
+
+        let total_iterations = total_requests as f64 / batch_size as f64 / scenario_count as f64;
+        let total_iterations = total_iterations.ceil() as u32;
 
         RunParameter {
-            target_tps: rps,
+            target_tps,
             batch_size,
             interval,
+            total_requests,
             total_iterations,
+            scenario_count,
         }
     }
 }
@@ -121,8 +144,10 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
             });
 
             // Start Repeating Scenario
+            //
             log::info!(
-                "Sending total iterations {} with {} TPS, batch size {}, interval {}",
+                "Sending total requests {}, iteraations {}, with {} TPS, batch size {}, interval {}",
+                param.total_requests,
                 param.total_iterations,
                 param.target_tps,
                 param.batch_size,
@@ -217,7 +242,7 @@ pub async fn run(options: Options, param: RunParameter) -> RunReport {
 
             let elapsed = start.elapsed();
             let elapsed_s = elapsed.as_secs() as f64 + elapsed.subsec_millis() as f64 / 1000.0;
-            let total_requests = param.total_iterations * param.batch_size;
+            let total_requests = param.total_requests as f64;
             let tps = total_requests as f64 / (elapsed.as_micros() as f64 / 1_000_000.0);
             log::info!("Elapsed: {:.3}s , {} requests per second", elapsed_s, tps,);
 
@@ -296,6 +321,7 @@ mod tests {
 
         assert_eq!(param.batch_size, 2);
         assert_eq!(param.interval.as_secs_f64(), 0.004);
-        assert_eq!(param.total_iterations, 60000);
+        assert_eq!(param.total_iterations, 30000);
+        assert_eq!(param.total_requests, 60000);
     }
 }
