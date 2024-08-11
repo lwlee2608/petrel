@@ -1,13 +1,12 @@
 use crate::dictionary;
 use crate::global::Global;
+use crate::options;
 use crate::options::Options;
 use crate::options::ScenarioType;
 use crate::scenario;
 use diameter::transport::DiameterClient;
 use diameter::transport::DiameterClientConfig;
 use diameter::DiameterMessage;
-// use std::cell::RefCell;
-// use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc::channel;
@@ -15,10 +14,6 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task;
 use tokio::task::LocalSet;
 use tokio::time::{self, Duration};
-
-// pub struct Runner {
-//     param: RunParameter,
-// }
 
 #[derive(Clone)]
 pub struct RunParameter {
@@ -45,13 +40,15 @@ impl RunParameter {
             scenario_count
         };
 
-        let target_rps = options.call_rate;
+        let target_rps = options.target_rps;
         let target_tps = target_rps / scenario_count as u32;
         let target_tps = if target_tps == 0 { 1 } else { target_tps };
 
-        let batch_size = (target_tps / 200) as u32;
+        let batch_size = match options.batch_size {
+            options::BatchSize::Auto(_) => target_tps / 200,
+            options::BatchSize::Fixed(size) => size,
+        };
         let batch_size = if batch_size == 0 { 1 } else { batch_size };
-        // let batch_size = 3;
 
         let batches_per_second = target_tps as f64 / batch_size as f64;
         let interval = Duration::from_secs_f64(1.0 / batches_per_second);
@@ -269,7 +266,8 @@ mod tests {
     fn test_load_calculate() {
         let options = Options {
             parallel: 1,
-            call_rate: 500,
+            target_rps: 500,
+            batch_size: options::BatchSize::Auto("Auto".to_string()),
             call_timeout: Duration::from_millis(2000),
             duration: Duration::from_secs(120),
             log_requests: false,
