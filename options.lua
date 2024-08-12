@@ -1,4 +1,5 @@
 local option = {
+    log_level = "Info",
     parallel = 4,
     call_timeout = "1000ms",
     batch_size = "Auto",

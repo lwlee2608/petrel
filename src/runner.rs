@@ -231,18 +231,13 @@ async fn event_loop(
     while let Some(event) = rx.recv().await {
         match event {
             Event::SendMessage(ctx, request, tx) => {
-                // log::info!("Sending message: {}", request);
                 // send message
                 let resp = client.send_message(request).await.unwrap();
                 tokio::spawn(async move {
-                    // let _ = task::spawn_local(async move {
                     let response = resp.await.unwrap();
 
-                    // log::info!("Received response: {}", response);
-
-                    let scenario_id = ctx.scenario_id + 1;
-
                     // Send response back to main runner loop
+                    let scenario_id = ctx.scenario_id + 1;
                     tx.send((EventContext { scenario_id }, response))
                         .await
                         .unwrap();
@@ -265,6 +260,7 @@ mod tests {
     #[test]
     fn test_load_calculate() {
         let options = Options {
+            log_level: options::LogLevel::Info,
             parallel: 1,
             target_rps: 500,
             batch_size: options::BatchSize::Auto("Auto".to_string()),

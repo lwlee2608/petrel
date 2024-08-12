@@ -7,6 +7,7 @@ use std::time::Duration;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Options {
+    pub log_level: LogLevel,
     pub parallel: u32,
     pub target_rps: u32,
     #[serde(deserialize_with = "humantime_duration_deserializer")]
@@ -20,6 +21,29 @@ pub struct Options {
     pub protocol: Protocol,
     pub dictionaries: Vec<String>,
     pub scenarios: Vec<Scenario>,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Copy, Clone)]
+pub enum LogLevel {
+    Off,
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl Into<log::LevelFilter> for LogLevel {
+    fn into(self) -> log::LevelFilter {
+        match self {
+            LogLevel::Off => log::LevelFilter::Off,
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Info => log::LevelFilter::Info,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Trace => log::LevelFilter::Trace,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
@@ -123,6 +147,7 @@ mod tests {
         let value = lua
             .load(
                 r#"{ 
+                    log_level = "Info",
                     parallel = 4,
                     target_rps = 20000, 
                     batch_size = 5,
@@ -165,6 +190,7 @@ mod tests {
 
         let options: Options = lua.from_value(value)?;
 
+        assert_eq!(options.log_level, LogLevel::Info);
         assert_eq!(options.parallel, 4);
         assert_eq!(options.target_rps, 20000);
         assert_eq!(options.batch_size, BatchSize::Fixed(5));

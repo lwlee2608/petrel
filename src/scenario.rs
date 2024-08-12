@@ -126,6 +126,7 @@ impl<'a> Message<'a> {
         self.seq_num += 1;
         // TODO remove this
         let seq_num = Uuid::new_v4().as_u128() as u32;
+
         let mut diameter_msg = DiameterMessage::new(
             self.command_code,
             self.application_id,

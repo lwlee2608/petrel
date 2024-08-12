@@ -11,6 +11,9 @@ use tokio::sync::mpsc;
 
 #[tokio::main]
 async fn main() {
+    // Load Config file
+    let options = options::load("./options.lua");
+
     env_logger::Builder::new()
         .format(|buf, record| {
             let now = Local::now();
@@ -28,11 +31,9 @@ async fn main() {
                 record.args()
             )
         })
-        .filter(None, log::LevelFilter::Info)
+        .filter(None, options.log_level.into())
         .init();
 
-    // Load Config file
-    let options = options::load("./options.lua");
     log::debug!("Options is {:?}", options);
 
     // Runners
