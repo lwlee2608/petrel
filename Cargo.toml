@@ -1,6 +1,6 @@
 [package]
 name = "petrel"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["Jason Lee<lwlee2608@gmail.com>"]
 description = "Diameter Load generator"
