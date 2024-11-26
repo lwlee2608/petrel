@@ -16,7 +16,6 @@ use diameter::avp::Time;
 use diameter::avp::UTF8String;
 use diameter::avp::Unsigned32;
 use diameter::avp::Unsigned64;
-use diameter::dictionary;
 use diameter::dictionary::Dictionary;
 use diameter::flags;
 use diameter::{ApplicationId, CommandCode, DiameterMessage};
@@ -70,16 +69,15 @@ impl<'a> Message<'a> {
         global: &'a Global,
         dict: Arc<Dictionary>,
     ) -> Result<Self, Box<dyn Error>> {
-        let dictionary = dictionary::DEFAULT_DICT.read().unwrap();
 
-        let command_code = dictionary
+        let command_code = dict
             .get_command_code_by_name(&scenario.message.command)
             .ok_or(format!(
                 "Unknown Command-Code '{}'",
                 scenario.message.command
             ))?;
 
-        let application_id = dictionary
+        let application_id = dict
             .get_application_id_by_name(&scenario.message.application)
             .ok_or(format!(
                 "Unknown Application-Id '{}'",
@@ -91,7 +89,7 @@ impl<'a> Message<'a> {
         let mut avps = vec![];
 
         for a in &scenario.message.avps {
-            let avp_definition = dictionary
+            let avp_definition = dict
                 .get_avp_by_name(&a.name)
                 .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
@@ -245,9 +243,8 @@ impl<'a> Value<'a> {
                 }
                 let mut avps = vec![];
                 for a in source {
-                    let dictionary = dictionary::DEFAULT_DICT.read().unwrap();
 
-                    let avp_definition = dictionary
+                    let avp_definition = dict
                         .get_avp_by_name(&a.name)
                         .ok_or(format!("AVP '{}' not found in dictionary", a.name))?;
 
